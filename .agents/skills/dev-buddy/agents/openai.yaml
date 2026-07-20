@@ -1,0 +1,4 @@
+interface:
+  display_name: "Dev Buddy"
+  short_description: "Operate Dev Buddy APIs and safely diagnose managed servers"
+  default_prompt: "Use $dev-buddy to inspect a managed Linux server and diagnose the reported issue safely."

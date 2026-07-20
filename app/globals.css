@@ -303,6 +303,52 @@ body {
   width: 100%;
 }
 
+.form-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(120px, 1fr);
+  gap: 16px;
+}
+
+.full-width,
+.risk-account-content {
+  width: 100% !important;
+}
+
+.policy-action-select {
+  width: 140px;
+}
+
+.private-key-upload {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: -4px 0 16px;
+}
+
+.api-key-secret {
+  margin: 20px 0 !important;
+  padding: 14px;
+  overflow-wrap: anywhere;
+  background: #f6f8fa;
+  border-radius: 8px;
+}
+
+.execution-detail {
+  padding: 8px 16px 16px;
+}
+
+.execution-detail pre {
+  max-height: 280px;
+  margin: 6px 0 14px;
+  padding: 12px;
+  overflow: auto;
+  color: #d6deeb;
+  background: #111827;
+  border-radius: 8px;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
 .route-loading {
   min-height: 560px;
 }
@@ -531,6 +577,17 @@ body {
 
   .resource-search {
     width: 100%;
+  }
+
+  .form-grid {
+    grid-template-columns: 1fr;
+    gap: 0;
+  }
+
+  .private-key-upload {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 6px;
   }
 }
 

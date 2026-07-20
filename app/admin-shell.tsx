@@ -6,11 +6,15 @@ import {
   AppstoreOutlined,
   BellOutlined,
   CloudServerOutlined,
+  CodeOutlined,
+  DesktopOutlined,
+  FileSearchOutlined,
   KeyOutlined,
   LineChartOutlined,
   MenuFoldOutlined,
   MenuUnfoldOutlined,
   SafetyCertificateOutlined,
+  SettingOutlined,
   TeamOutlined,
 } from "@ant-design/icons";
 import { App, Avatar, Button, ConfigProvider, Dropdown, Flex, Layout, Menu, Space, Typography, theme } from "antd";
@@ -26,7 +30,7 @@ function Shell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const [collapsed, setCollapsed] = useState(false);
-  const selectedKey = ["/aliyun/resources", "/aliyun/costs", "/aliyun/risks"].find((key) => pathname.startsWith(key))
+  const selectedKey = ["/servers", "/command-policies", "/executions", "/api-keys", "/aliyun/resources", "/aliyun/costs", "/aliyun/risks"].find((key) => pathname.startsWith(key))
     ?? (pathname.startsWith("/aliyun") ? "/aliyun" : "/");
   const accountItems: MenuProps["items"] = [
     { key: "profile", label: "个人资料" },
@@ -44,10 +48,20 @@ function Shell({ children }: { children: ReactNode }) {
           theme="dark"
           mode="inline"
           selectedKeys={[selectedKey]}
-          defaultOpenKeys={["aliyun-management"]}
+          defaultOpenKeys={["server-operations", "aliyun-management", "system-management"]}
           onClick={({ key }) => router.push(key)}
           items={[
             { key: "/", icon: <TeamOutlined />, label: "用户管理" },
+            {
+              key: "server-operations",
+              icon: <DesktopOutlined />,
+              label: "服务器运维",
+              children: [
+                { key: "/servers", icon: <CloudServerOutlined />, label: "服务器列表" },
+                { key: "/command-policies", icon: <CodeOutlined />, label: "命令策略" },
+                { key: "/executions", icon: <FileSearchOutlined />, label: "执行审计" },
+              ],
+            },
             {
               key: "aliyun-management",
               icon: <CloudServerOutlined />,
@@ -57,6 +71,14 @@ function Shell({ children }: { children: ReactNode }) {
                 { key: "/aliyun/resources", icon: <AppstoreOutlined />, label: "全部资源" },
                 { key: "/aliyun/costs", icon: <LineChartOutlined />, label: "费用分析" },
                 { key: "/aliyun/risks", icon: <SafetyCertificateOutlined />, label: "风险提醒" },
+              ],
+            },
+            {
+              key: "system-management",
+              icon: <SettingOutlined />,
+              label: "系统管理",
+              children: [
+                { key: "/api-keys", icon: <KeyOutlined />, label: "API Key" },
               ],
             },
           ]}
