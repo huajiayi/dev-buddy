@@ -9,10 +9,10 @@ function bearerToken(request: NextRequest) {
 }
 
 export async function GET(request: NextRequest) {
-  const apiKey = await authenticateProjectApiKey(bearerToken(request), "policies:read");
+  const apiKey = await authenticateProjectApiKey(bearerToken(request));
   if (!apiKey) {
     return NextResponse.json(
-      { error: "invalid_api_key", message: "API Key 无效、已过期或缺少 policies:read 权限" },
+      { error: "invalid_api_key", message: "API Key 无效、已禁用或已过期" },
       { status: 401 },
     );
   }
@@ -26,10 +26,10 @@ export async function POST(request: NextRequest) {
       { status: 415 },
     );
   }
-  const apiKey = await authenticateProjectApiKey(bearerToken(request), "policies:write");
+  const apiKey = await authenticateProjectApiKey(bearerToken(request));
   if (!apiKey) {
     return NextResponse.json(
-      { error: "invalid_api_key", message: "API Key 无效、已过期或缺少 policies:write 权限" },
+      { error: "invalid_api_key", message: "API Key 无效、已禁用或已过期" },
       { status: 401 },
     );
   }

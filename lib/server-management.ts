@@ -1,5 +1,4 @@
 import { createHash, randomBytes, randomUUID, timingSafeEqual } from "node:crypto";
-import { basename } from "node:path";
 import { Client } from "ssh2";
 import { ensureSchema, getPool } from "./db";
 import { decryptSecret, encryptSecret } from "./secret";
@@ -20,10 +19,9 @@ export type ProjectApiKey = {
   id: string;
   name: string;
   prefix: string;
-  scopes: string[];
+  enabled: boolean;
   lastUsedAt: string | null;
   expiresAt: string | null;
-  revokedAt: string | null;
   createdAt: string;
 };
 
@@ -52,7 +50,22 @@ export type CommandExecution = {
   exitCode: number | null;
   durationMs: number | null;
   remoteAddress: string | null;
+  source: string;
   createdAt: string;
+};
+
+export type SshTerminalSession = {
+  id: string;
+  serverId: string | null;
+  serverName: string;
+  status: string;
+  remoteAddress: string | null;
+  bytesIn: number;
+  bytesOut: number;
+  closeReason: string | null;
+  startedAt: string;
+  connectedAt: string | null;
+  endedAt: string | null;
 };
 
 type ServerRow = {
@@ -62,8 +75,8 @@ type ServerRow = {
 };
 
 type ApiKeyRow = {
-  id: string; name: string; key_prefix: string; key_hash: string; scopes: string[];
-  last_used_at: Date | null; expires_at: Date | null; revoked_at: Date | null; created_at: Date;
+  id: string; name: string; key_prefix: string; key_hash: string;
+  enabled: boolean; last_used_at: Date | null; expires_at: Date | null; created_at: Date;
 };
 
 type PolicyRow = {
@@ -73,29 +86,6 @@ type PolicyRow = {
 
 type Credential = { secret: string };
 
-const DEFAULT_ALLOWED_COMMANDS = new Set([
-  "cat", "date", "df", "dmesg", "docker", "du", "free", "head", "hostname",
-  "ip", "journalctl", "ls", "netstat", "ps", "pwd", "ss", "systemctl", "tail",
-  "top", "uname", "uptime", "vmstat", "wc", "who", "whoami",
-]);
-
-const ALWAYS_DENIED_COMMANDS = new Set([
-  "chmod", "chown", "dd", "fdisk", "iptables", "kill", "killall", "mkfs", "mount",
-  "mv", "passwd", "reboot", "rm", "shutdown", "sudo", "systemctl-restart", "useradd", "userdel",
-]);
-
-const SHELL_CONTROL_PATTERN = /[;&|><\r\n\0`]|\$\(/;
-const HIGH_RISK_ARGUMENT_PATTERN = /\b(systemctl\s+(?:start|stop|restart|reload|enable|disable|mask|unmask)|docker\s+(?:exec|rm|rmi|kill|stop|restart|system|compose\s+(?:up|down|restart))|journalctl\s+.*--vacuum|ip\s+(?:addr|link|route)\s+(?:add|del|set))\b/i;
-const SENSITIVE_PATH_PATTERN = /(^|[\s"'])(?:\/etc\/(?:shadow|gshadow|sudoers)|\/proc\/\d+\/environ|[^\s]*(?:\.ssh\/|\.aws\/|\.config\/gcloud\/|\.kube\/config)|[^\s]*\.env(?:\s|$))/i;
-const SAFE_COMMAND_SHAPES: Record<string, RegExp> = {
-  date: /^date(?:\s+(?!--set\b|-s\b).*)?$/i,
-  dmesg: /^dmesg(?:\s+(?!--clear\b|-c\b).*)?$/i,
-  docker: /^docker\s+(?:ps|logs|inspect|stats|version|info|images)\b/i,
-  hostname: /^hostname(?:\s+(?:-f|-s|-i|-I|--fqdn|--short|--ip-address|--all-ip-addresses))*$/i,
-  ip: /^ip\s+(?:-br\s+)?(?:addr|address|link|route|neigh)(?:\s+(?:show|list))?(?:\s+.*)?$/i,
-  journalctl: /^journalctl(?!.*(?:--vacuum|--rotate|--flush|--sync|--relinquish-var)).*$/i,
-  systemctl: /^systemctl\s+(?:status|show|is-active|is-enabled|list-units|list-unit-files)\b/i,
-};
 const MAX_OUTPUT_BYTES = 256 * 1024;
 
 function toServer(row: ServerRow): ManagedServer {
@@ -103,7 +93,7 @@ function toServer(row: ServerRow): ManagedServer {
 }
 
 function toApiKey(row: ApiKeyRow): ProjectApiKey {
-  return { id: row.id, name: row.name, prefix: row.key_prefix, scopes: row.scopes, lastUsedAt: row.last_used_at?.toISOString() ?? null, expiresAt: row.expires_at?.toISOString() ?? null, revokedAt: row.revoked_at?.toISOString() ?? null, createdAt: row.created_at.toISOString() };
+  return { id: row.id, name: row.name, prefix: row.key_prefix, enabled: row.enabled, lastUsedAt: row.last_used_at?.toISOString() ?? null, expiresAt: row.expires_at?.toISOString() ?? null, createdAt: row.created_at.toISOString() };
 }
 
 function toPolicy(row: PolicyRow): CommandPolicy {
@@ -173,24 +163,30 @@ export async function listProjectApiKeys() {
   return result.rows.map(toApiKey);
 }
 
-export async function createProjectApiKey(name: string, scopes = ["commands:execute", "servers:read", "policies:read", "policies:write"]) {
+export async function createProjectApiKey(name: string) {
   await ensureSchema();
   const value = `dbp_${randomBytes(32).toString("base64url")}`;
   const prefix = value.slice(0, 12);
   const id = randomUUID();
   await getPool().query(
-    "INSERT INTO project_api_keys (id, name, key_prefix, key_hash, scopes) VALUES ($1,$2,$3,$4,$5)",
-    [id, name, prefix, keyHash(value), scopes],
+    "INSERT INTO project_api_keys (id, name, key_prefix, key_hash) VALUES ($1,$2,$3,$4)",
+    [id, name, prefix, keyHash(value)],
   );
   return { id, value };
 }
 
-export async function revokeProjectApiKey(id: string) {
+export async function removeProjectApiKey(id: string) {
   await ensureSchema();
-  await getPool().query("UPDATE project_api_keys SET revoked_at = NOW() WHERE id = $1 AND revoked_at IS NULL", [id]);
+  await getPool().query("DELETE FROM project_api_keys WHERE id=$1", [id]);
 }
 
-export async function authenticateProjectApiKey(value: string, requiredScope: string) {
+export async function setProjectApiKeyEnabled(id: string, enabled: boolean) {
+  await ensureSchema();
+  const result = await getPool().query("UPDATE project_api_keys SET enabled=$2 WHERE id=$1", [id, enabled]);
+  if (result.rowCount === 0) throw new Error("API Key 不存在");
+}
+
+export async function authenticateProjectApiKey(value: string) {
   await ensureSchema();
   const hash = keyHash(value);
   const result = await getPool().query<ApiKeyRow>("SELECT * FROM project_api_keys WHERE key_hash = $1", [hash]);
@@ -199,7 +195,7 @@ export async function authenticateProjectApiKey(value: string, requiredScope: st
   const stored = Buffer.from(row.key_hash, "hex");
   const supplied = Buffer.from(hash, "hex");
   if (stored.length !== supplied.length || !timingSafeEqual(stored, supplied)) return null;
-  if (row.revoked_at || (row.expires_at && row.expires_at.getTime() <= Date.now()) || !row.scopes.includes(requiredScope)) return null;
+  if (!row.enabled || (row.expires_at && row.expires_at.getTime() <= Date.now())) return null;
   await getPool().query("UPDATE project_api_keys SET last_used_at = NOW() WHERE id = $1", [row.id]);
   return toApiKey(row);
 }
@@ -241,16 +237,6 @@ export async function removeCommandPolicy(id: string) {
 export async function evaluateCommand(command: string) {
   const trimmed = command.trim();
   if (!trimmed || trimmed.length > 2000) return { allowed: false, reason: "命令为空或超过 2000 个字符" };
-  if (SHELL_CONTROL_PATTERN.test(trimmed)) return { allowed: false, reason: "最简安全模式禁止管道、重定向、命令连接或命令替换" };
-  if (HIGH_RISK_ARGUMENT_PATTERN.test(trimmed)) return { allowed: false, reason: "命令包含内置高风险操作参数" };
-  if (SENSITIVE_PATH_PATTERN.test(trimmed)) return { allowed: false, reason: "禁止读取敏感凭证或系统认证文件" };
-  if (/^[A-Za-z_][A-Za-z0-9_]*=/.test(trimmed)) return { allowed: false, reason: "禁止通过环境变量前缀改变命令行为" };
-
-  const firstToken = trimmed.match(/^\s*(?:["']?)([^\s"']+)/)?.[1] ?? "";
-  const executable = basename(firstToken).toLowerCase();
-  if (ALWAYS_DENIED_COMMANDS.has(executable)) return { allowed: false, reason: `${executable} 属于内置高危命令` };
-  const safeShape = SAFE_COMMAND_SHAPES[executable];
-  if (safeShape && !safeShape.test(trimmed)) return { allowed: false, reason: `${executable} 的参数不在内置只读范围内` };
 
   const policies = await listCommandPolicies();
   for (const policy of policies) {
@@ -259,12 +245,10 @@ export async function evaluateCommand(command: string) {
       return { allowed: policy.action === "allow", reason: `匹配策略：${policy.name}` };
     }
   }
-  return DEFAULT_ALLOWED_COMMANDS.has(executable)
-    ? { allowed: true, reason: `命中内置只读命令：${executable}` }
-    : { allowed: false, reason: `命令 ${executable || "未知"} 不在允许列表中` };
+  return { allowed: true, reason: "未命中任何自定义策略，默认允许" };
 }
 
-async function getServerWithCredential(id: string) {
+export async function getServerWithCredential(id: string) {
   await ensureSchema();
   const result = await getPool().query<ServerRow>("SELECT * FROM managed_servers WHERE id = $1", [id]);
   const row = result.rows[0];
@@ -322,21 +306,21 @@ export async function checkApiKeyRateLimit(apiKeyId: string, limit = 30) {
   return Number(result.rows[0]?.count ?? 0) < limit;
 }
 
-async function insertExecution(input: { id: string; serverId: string; apiKeyId: string; command: string; reason: string; status: string; policyDecision: string; policyReason: string; remoteAddress?: string }) {
+async function insertExecution(input: { id: string; serverId: string; apiKeyId?: string | null; command: string; reason: string; status: string; policyDecision: string; policyReason: string; remoteAddress?: string; source?: string }) {
   await getPool().query(
-    `INSERT INTO command_executions (id, server_id, api_key_id, command, reason, status, policy_decision, policy_reason, remote_address)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
-    [input.id, input.serverId, input.apiKeyId, input.command, input.reason, input.status, input.policyDecision, input.policyReason, input.remoteAddress || null],
+    `INSERT INTO command_executions (id, server_id, api_key_id, command, reason, status, policy_decision, policy_reason, remote_address, source)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
+    [input.id, input.serverId, input.apiKeyId || null, input.command, input.reason, input.status, input.policyDecision, input.policyReason, input.remoteAddress || null, input.source || "api"],
   );
 }
 
-export async function executeManagedCommand(input: { serverId: string; apiKeyId: string; command: string; reason?: string; timeoutSeconds?: number; remoteAddress?: string }) {
+export async function executeManagedCommand(input: { serverId: string; apiKeyId?: string | null; command: string; reason?: string; timeoutSeconds?: number; remoteAddress?: string; source?: string }) {
   await ensureSchema();
   const executionId = randomUUID();
   const target = await getServerWithCredential(input.serverId);
   if (!target) throw new Error("服务器不存在");
   const decision = await evaluateCommand(input.command);
-  await insertExecution({ id: executionId, serverId: input.serverId, apiKeyId: input.apiKeyId, command: input.command, reason: input.reason?.slice(0, 500) || "", status: decision.allowed ? "running" : "rejected", policyDecision: decision.allowed ? "allow" : "deny", policyReason: decision.reason, remoteAddress: input.remoteAddress });
+  await insertExecution({ id: executionId, serverId: input.serverId, apiKeyId: input.apiKeyId, command: input.command, reason: input.reason?.slice(0, 500) || "", status: decision.allowed ? "running" : "rejected", policyDecision: decision.allowed ? "allow" : "deny", policyReason: decision.reason, remoteAddress: input.remoteAddress, source: input.source });
   if (!decision.allowed) return { executionId, status: "rejected", policyDecision: "deny", policyReason: decision.reason, stdout: "", stderr: "", exitCode: null, durationMs: 0 };
   if (!target.server.enabled) {
     await getPool().query("UPDATE command_executions SET status='failed', stderr=$2, finished_at=NOW() WHERE id=$1", [executionId, "服务器已禁用"]);
@@ -361,9 +345,44 @@ export async function listCommandExecutions(limit = 100): Promise<CommandExecuti
   const result = await getPool().query<{
     id: string; server_id: string | null; server_name: string | null; api_key_name: string | null; command: string; reason: string;
     status: string; policy_decision: string; policy_reason: string; stdout: string; stderr: string; exit_code: number | null;
-    duration_ms: number | null; remote_address: string | null; created_at: Date;
+    duration_ms: number | null; remote_address: string | null; source: string; created_at: Date;
   }>(`SELECT e.*, s.name AS server_name, k.name AS api_key_name FROM command_executions e
       LEFT JOIN managed_servers s ON s.id=e.server_id LEFT JOIN project_api_keys k ON k.id=e.api_key_id
       ORDER BY e.created_at DESC LIMIT $1`, [Math.max(1, Math.min(limit, 500))]);
-  return result.rows.map((row) => ({ id: row.id, serverId: row.server_id, serverName: row.server_name, apiKeyName: row.api_key_name, command: row.command, reason: row.reason, status: row.status, policyDecision: row.policy_decision, policyReason: row.policy_reason, stdout: row.stdout, stderr: row.stderr, exitCode: row.exit_code, durationMs: row.duration_ms, remoteAddress: row.remote_address, createdAt: row.created_at.toISOString() }));
+  return result.rows.map((row) => ({ id: row.id, serverId: row.server_id, serverName: row.server_name, apiKeyName: row.api_key_name, command: row.command, reason: row.reason, status: row.status, policyDecision: row.policy_decision, policyReason: row.policy_reason, stdout: row.stdout, stderr: row.stderr, exitCode: row.exit_code, durationMs: row.duration_ms, remoteAddress: row.remote_address, source: row.source, createdAt: row.created_at.toISOString() }));
+}
+
+export async function listSshTerminalSessions(limit = 100): Promise<SshTerminalSession[]> {
+  await ensureSchema();
+  const result = await getPool().query<{
+    id: string;
+    server_id: string | null;
+    server_name: string;
+    status: string;
+    remote_address: string | null;
+    bytes_in: string;
+    bytes_out: string;
+    close_reason: string | null;
+    started_at: Date;
+    connected_at: Date | null;
+    ended_at: Date | null;
+  }>(
+    `SELECT * FROM ssh_terminal_sessions
+     ORDER BY started_at DESC
+     LIMIT $1`,
+    [Math.max(1, Math.min(limit, 500))],
+  );
+  return result.rows.map((row) => ({
+    id: row.id,
+    serverId: row.server_id,
+    serverName: row.server_name,
+    status: row.status,
+    remoteAddress: row.remote_address,
+    bytesIn: Number(row.bytes_in),
+    bytesOut: Number(row.bytes_out),
+    closeReason: row.close_reason,
+    startedAt: row.started_at.toISOString(),
+    connectedAt: row.connected_at?.toISOString() ?? null,
+    endedAt: row.ended_at?.toISOString() ?? null,
+  }));
 }

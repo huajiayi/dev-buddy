@@ -9,8 +9,8 @@ function bearerToken(request: NextRequest) {
 }
 
 export async function GET(request: NextRequest) {
-  const apiKey = await authenticateProjectApiKey(bearerToken(request), "servers:read");
-  if (!apiKey) return NextResponse.json({ error: "invalid_api_key", message: "API Key 无效、已过期或缺少 servers:read 权限" }, { status: 401 });
+  const apiKey = await authenticateProjectApiKey(bearerToken(request));
+  if (!apiKey) return NextResponse.json({ error: "invalid_api_key", message: "API Key 无效、已禁用或已过期" }, { status: 401 });
   const servers = (await listManagedServers()).filter((server) => server.enabled);
   return NextResponse.json({ data: servers });
 }

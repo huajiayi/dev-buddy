@@ -35,9 +35,9 @@ export default function AccountDetail({ account, overview, error }: { account: A
   return <>
     <Breadcrumb items={[{ title: "首页" }, { title: "阿里云账号管理" }, { title: account.name }]} />
     <div className="detail-heading"><div><Button type="text" icon={<ArrowLeftOutlined />} onClick={() => router.push("/aliyun")}>返回账号列表</Button><Title level={2}>{account.name}</Title><Text type="secondary">{account.site === "international" ? "Alibaba Cloud 国际站" : "阿里云中国站"} · {account.accessKeyId.slice(0, 6)}****{account.accessKeyId.slice(-4)} · 自动扫描全部可用地域</Text></div><Button icon={<ReloadOutlined />} loading={isRefreshing} onClick={() => startRefresh(() => router.refresh())}>{isRefreshing ? "正在刷新" : "刷新数据"}</Button></div>
-    {error && <Alert type="error" showIcon message="阿里云数据读取失败" description={error} className="detail-alert" />}
+    {error && <Alert type="error" showIcon title="阿里云数据读取失败" description={error} className="detail-alert" />}
     {overview && <>
-      {overview.regionErrors.length > 0 && <Alert type="warning" showIcon message="部分地域读取失败" description={overview.regionErrors.map((item) => `${item.region}: ${item.message}`).join("；")} className="detail-alert" />}
+      {overview.regionErrors.length > 0 && <Alert type="warning" showIcon title="部分地域读取失败" description={overview.regionErrors.map((item) => `${item.region}: ${item.message}`).join("；")} className="detail-alert" />}
       <div className="stats-grid">
         <Card><Statistic title="可用余额" value={overview.balance.available} precision={2} prefix={<DollarOutlined />} suffix={overview.balance.currency} /></Card>
         <Card><Statistic title={`${overview.billingCycle} 原始消费`} value={overview.monthGrossSpend} precision={2} prefix={<ThunderboltOutlined />} suffix={overview.balance.currency} /><Text type="secondary">优惠后应付 {money(overview.monthSpend, overview.balance.currency)}</Text></Card>

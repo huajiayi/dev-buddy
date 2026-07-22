@@ -9,6 +9,6 @@ export default function AliyunError({ error, reset }: { error: Error & { digest?
     subTitle="请检查数据库连接或账号配置后重试"
     extra={<Button type="primary" onClick={reset}>重新加载</Button>}
   >
-    <Alert type="error" showIcon message={error.message || "未知错误"} />
+    <Alert type="error" showIcon title={error.message || "未知错误"} />
   </Result>;
 }

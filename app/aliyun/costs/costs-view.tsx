@@ -32,7 +32,7 @@ export default function CostsView({ data }: { data: AccountCosts[] }) {
     {data.length === 0 ? <Card className="detail-card"><Empty description="请先添加阿里云账号" /></Card> : <Card className="detail-card cost-tabs"><Tabs items={data.map((group) => ({
       key: group.account.id,
       label: <span>{group.account.name} <Tag color={group.account.site === "international" ? "purple" : "blue"}>{group.account.site === "international" ? "国际站" : "中国站"}</Tag></span>,
-      children: group.error ? <Alert type="warning" showIcon message="账单读取失败" description={group.error} /> : <div className="cost-layout">
+      children: group.error ? <Alert type="warning" showIcon title="账单读取失败" description={group.error} /> : <div className="cost-layout">
         <Card title="近 6 个月消费趋势" className="inner-card">
           <div className="cost-chart" role="img" aria-label={`${group.account.name} 近六个月消费趋势`}>
             {group.months.map((month) => {

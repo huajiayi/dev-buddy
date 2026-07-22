@@ -32,7 +32,7 @@ export default function ResourcesView({ data }: { data: AccountResources[] }) {
 
   return <>
     <InsightHeader title="全部资源" description="跨账号、跨产品和跨地域汇总当前 AccessKey 有权查看的云资源" />
-    {data.filter((item) => item.error).map((item) => <Alert key={item.account.id} type="warning" showIcon className="detail-alert" message={`${item.account.name} 无法读取资源中心`} description={item.error} />)}
+    {data.filter((item) => item.error).map((item) => <Alert key={item.account.id} type="warning" showIcon className="detail-alert" title={`${item.account.name} 无法读取资源中心`} description={item.error} />)}
     <div className="stats-grid">
       <Card><Statistic title="资源总数" value={rows.length} prefix={<CloudOutlined />} /></Card>
       <Card><Statistic title="云产品" value={products} prefix={<AppstoreOutlined />} /></Card>

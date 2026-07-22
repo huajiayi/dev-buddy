@@ -1,10 +1,11 @@
 "use client";
 
-import { ApiOutlined, DeleteOutlined, EditOutlined, PlusOutlined, UploadOutlined } from "@ant-design/icons";
+import { ApiOutlined, CodeOutlined, DeleteOutlined, DesktopOutlined, EditOutlined, PlusOutlined, UploadOutlined } from "@ant-design/icons";
 import { App, Breadcrumb, Button, Card, Form, Input, InputNumber, Modal, Popconfirm, Select, Space, Switch, Table, Tag, Typography, Upload } from "antd";
 import type { TableColumnsType } from "antd";
 import type { UploadProps } from "antd";
 import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import type { ManagedServer } from "@/lib/server-management";
 import { createServer, deleteServer, editServer, testServerConnection, toggleServer } from "./actions";
 import type { ServerInput } from "./actions";
@@ -13,6 +14,7 @@ const { Title, Text } = Typography;
 
 export default function ServersView({ servers }: { servers: ManagedServer[] }) {
   const { message } = App.useApp();
+  const router = useRouter();
   const [form] = Form.useForm<ServerInput>();
   const authType = Form.useWatch("authType", form);
   const [open, setOpen] = useState(false);
@@ -78,13 +80,13 @@ export default function ServersView({ servers }: { servers: ManagedServer[] }) {
     { title: "认证", dataIndex: "authType", width: 110, render: (value: ManagedServer["authType"]) => value === "privateKey" ? "SSH 私钥" : "密码" },
     { title: "环境", dataIndex: "environment", width: 110, render: (value: string) => <Tag color={value === "production" ? "red" : value === "staging" ? "orange" : "blue"}>{value}</Tag> },
     { title: "启用", dataIndex: "enabled", width: 90, render: (value: boolean, item) => <Switch checked={value} onChange={(checked) => startTransition(async () => { const result = await toggleServer(item.id, checked); if (result.ok) message.success("状态已更新"); else message.error(result.error); })} /> },
-    { title: "操作", width: 250, render: (_, item) => <Space><Button type="link" icon={<ApiOutlined />} loading={testingId === item.id} onClick={() => { setTestingId(item.id); startTransition(async () => { const result = await testServerConnection(item.id); if (result.ok) message.success("SSH 连接正常"); else message.error(result.error || "连接测试失败"); setTestingId(undefined); }); }}>测试连接</Button><Button type="text" icon={<EditOutlined />} onClick={() => openEditModal(item)}>编辑</Button><Popconfirm title="确认删除这台服务器？" onConfirm={() => startTransition(async () => { const result = await deleteServer(item.id); if (result.ok) message.success("已删除"); else message.error(result.error); })}><Button danger type="text" icon={<DeleteOutlined />} aria-label={`删除 ${item.name}`} /></Popconfirm></Space> },
+    { title: "操作", width: 460, render: (_, item) => <Space><Button type="link" icon={<CodeOutlined />} disabled={!item.enabled} onClick={() => router.push(`/servers/${item.id}/terminal`)}>受控终端</Button><Button type="link" icon={<DesktopOutlined />} disabled={!item.enabled} onClick={() => router.push(`/servers/${item.id}/ssh-terminal`)}>SSH 终端</Button><Button type="link" icon={<ApiOutlined />} loading={testingId === item.id} onClick={() => { setTestingId(item.id); startTransition(async () => { const result = await testServerConnection(item.id); if (result.ok) message.success("SSH 连接正常"); else message.error(result.error || "连接测试失败"); setTestingId(undefined); }); }}>测试连接</Button><Button type="text" icon={<EditOutlined />} onClick={() => openEditModal(item)}>编辑</Button><Popconfirm title="确认删除这台服务器？" onConfirm={() => startTransition(async () => { const result = await deleteServer(item.id); if (result.ok) message.success("已删除"); else message.error(result.error); })}><Button danger type="text" icon={<DeleteOutlined />} aria-label={`删除 ${item.name}`} /></Popconfirm></Space> },
   ];
 
   return <>
     <Breadcrumb items={[{ title: "首页" }, { title: "服务器运维" }, { title: "服务器列表" }]} />
-    <div className="page-heading"><div><Title level={2}>服务器列表</Title><Text type="secondary">管理允许项目 API 执行只读诊断命令的 Linux 服务器</Text></div><Button type="primary" icon={<PlusOutlined />} onClick={openCreateModal}>添加服务器</Button></div>
-    <Card className="detail-card"><Table rowKey="id" columns={columns} dataSource={servers} scroll={{ x: 1080 }} pagination={{ pageSize: 10 }} locale={{ emptyText: "暂无服务器，请先添加 SSH 连接信息" }} /></Card>
+    <div className="page-heading"><div><Title level={2}>服务器列表</Title><Text type="secondary">通过项目 API、受控命令终端或完整 SSH 交互终端管理 Linux 服务器</Text></div><Button type="primary" icon={<PlusOutlined />} onClick={openCreateModal}>添加服务器</Button></div>
+    <Card className="detail-card"><Table rowKey="id" columns={columns} dataSource={servers} scroll={{ x: 1290 }} pagination={{ pageSize: 10 }} locale={{ emptyText: "暂无服务器，请先添加 SSH 连接信息" }} /></Card>
     <Modal title={editingServer ? "编辑 Linux 服务器" : "添加 Linux 服务器"} open={open} onCancel={closeModal} onOk={() => form.submit()} okText={editingServer ? "保存" : "添加"} confirmLoading={pending} destroyOnHidden>
       <Form form={form} layout="vertical" initialValues={{ port: 22, authType: "privateKey", environment: "production" }} onFinish={submit} className="server-form">
         <Form.Item name="name" label="名称" rules={[{ required: true }]}><Input placeholder="生产环境 Web-01" /></Form.Item>

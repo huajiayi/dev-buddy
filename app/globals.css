@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import "@xterm/xterm/css/xterm.css";
 
 :root {
   --background: #ffffff;
@@ -17,6 +18,376 @@ body {
   color: var(--foreground);
   font-family: "Geist", "PingFang SC", "Microsoft YaHei", Arial, sans-serif;
   margin: 0;
+}
+
+.terminal-card {
+  overflow: hidden;
+  border-color: #1f2b3d !important;
+  box-shadow: 0 10px 30px rgb(15 23 42 / 14%);
+}
+
+.server-terminal {
+  height: min(650px, calc(100vh - 300px));
+  min-height: 420px;
+  padding: 16px 12px;
+  background: #0b1220;
+}
+
+.server-terminal .xterm {
+  height: 100%;
+}
+
+.ssh-interactive-terminal {
+  height: min(720px, calc(100vh - 290px));
+  min-height: 480px;
+  background: #07101d;
+}
+
+.notice-popover-content {
+  width: min(360px, calc(100vw - 64px));
+  margin-bottom: 0 !important;
+  color: rgb(0 0 0 / 65%);
+  line-height: 1.65;
+}
+
+.notice-popover-trigger {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  color: rgb(0 0 0 / 38%);
+  cursor: help;
+  font-size: 15px;
+  line-height: 1;
+  transition: color 0.2s ease;
+}
+
+.ant-typography:has(> .notice-popover-trigger) {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.notice-popover-trigger:hover,
+.notice-popover-trigger:focus-visible {
+  color: #1677ff;
+  outline: none;
+}
+
+.workbench-heading {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 20px;
+  flex: 0 0 auto;
+  margin: 8px 0 10px;
+}
+
+.workbench-heading h3 {
+  margin: 0 0 4px !important;
+  font-size: 20px !important;
+}
+
+.database-workbench {
+  display: grid;
+  flex: 1 1 auto;
+  grid-template-columns: var(--navigator-width, 250px) 6px minmax(0, 1fr);
+  min-height: 0;
+  overflow: hidden;
+  border: 1px solid #d9d9d9;
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: 0 4px 18px rgb(15 23 42 / 6%);
+}
+
+.database-navigator {
+  min-width: 0;
+  overflow: auto;
+  background: #fafafa;
+}
+
+.workbench-panel-title {
+  position: sticky;
+  z-index: 1;
+  top: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 40px;
+  padding: 0 12px;
+  border-bottom: 1px solid #e5e7eb;
+  background: #f3f4f6;
+}
+
+.database-navigator .ant-tree {
+  padding: 8px 4px;
+  background: transparent;
+  font-size: 13px;
+}
+
+.database-navigator .ant-tree-list-holder-inner {
+  width: max-content;
+  min-width: 100%;
+}
+
+.database-navigator .ant-tree-treenode {
+  align-items: center;
+  min-width: 100%;
+  white-space: nowrap;
+}
+
+.database-navigator .ant-tree-switcher {
+  display: inline-flex;
+  flex: 0 0 24px;
+  align-items: center;
+  justify-content: center;
+}
+
+.database-navigator .ant-tree-node-content-wrapper {
+  display: block !important;
+  flex: 1 0 auto;
+  min-height: 26px;
+}
+
+.database-navigator .ant-tree-title {
+  display: block !important;
+  min-height: 26px;
+  line-height: 26px;
+  white-space: nowrap;
+}
+
+.database-tree-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 26px;
+  line-height: 1.25;
+  white-space: nowrap;
+}
+
+.database-tree-label-icon {
+  display: inline-flex;
+  flex: 0 0 18px;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+}
+
+.database-navigator .ant-empty {
+  margin-top: 48px;
+}
+
+.database-editor-area {
+  display: grid;
+  grid-template-rows: 40px minmax(160px, var(--editor-pane-height, 52%)) 6px minmax(160px, 1fr);
+  min-width: 0;
+  min-height: 0;
+}
+
+.workbench-splitter {
+  position: relative;
+  z-index: 3;
+  background: #f3f4f6;
+  outline: none;
+  touch-action: none;
+  transition: background-color 0.15s ease;
+}
+
+.workbench-splitter::after {
+  position: absolute;
+  border-radius: 2px;
+  background: #c5c9d0;
+  content: "";
+  transition: background-color 0.15s ease, transform 0.15s ease;
+}
+
+.workbench-splitter:hover,
+.workbench-splitter:focus-visible {
+  background: #e6f4ff;
+}
+
+.workbench-splitter:hover::after,
+.workbench-splitter:focus-visible::after {
+  background: #1677ff;
+}
+
+.workbench-splitter-horizontal {
+  cursor: col-resize;
+}
+
+.workbench-splitter-horizontal::after {
+  top: 50%;
+  left: 2px;
+  width: 2px;
+  height: 42px;
+  transform: translateY(-50%);
+}
+
+.workbench-splitter-horizontal:hover::after,
+.workbench-splitter-horizontal:focus-visible::after {
+  transform: translateY(-50%) scaleX(1.5);
+}
+
+.workbench-splitter-vertical {
+  cursor: row-resize;
+}
+
+.workbench-splitter-vertical::after {
+  top: 2px;
+  left: 50%;
+  width: 42px;
+  height: 2px;
+  transform: translateX(-50%);
+}
+
+.workbench-splitter-vertical:hover::after,
+.workbench-splitter-vertical:focus-visible::after {
+  transform: translateX(-50%) scaleY(1.5);
+}
+
+.workbench-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 5px 10px;
+  border-bottom: 1px solid #e5e7eb;
+  background: #fafafa;
+}
+
+.workbench-unit {
+  width: 42px !important;
+  text-align: center;
+  pointer-events: none;
+}
+
+.database-editor-tabs {
+  min-height: 0;
+}
+
+.database-editor-tabs > .ant-tabs-nav {
+  margin: 0 !important;
+}
+
+.database-editor-tabs > .ant-tabs-content-holder,
+.database-editor-tabs .ant-tabs-content,
+.database-editor-tabs .ant-tabs-tabpane {
+  height: 100%;
+  min-height: 0;
+}
+
+.database-sql-editor {
+  height: 100% !important;
+  min-height: 260px !important;
+  resize: none !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  padding: 14px 16px !important;
+  box-shadow: none !important;
+  font-family: "Geist Mono", "Cascadia Code", Consolas, monospace !important;
+  font-size: 14px;
+  line-height: 1.65;
+}
+
+.database-results {
+  min-height: 0;
+  overflow: hidden;
+  border-top: 1px solid #d1d5db;
+  background: #fff;
+}
+
+.database-results > .ant-tabs {
+  display: flex;
+  height: 100%;
+  min-height: 0;
+  flex-direction: column;
+}
+
+.database-results > .ant-tabs > .ant-tabs-nav {
+  flex: 0 0 auto;
+  margin: 0 !important;
+  padding: 0 12px;
+  background: #fafafa;
+}
+
+.database-results > .ant-tabs > .ant-tabs-content-holder {
+  min-height: 0;
+  flex: 1 1 auto;
+  overflow: hidden;
+}
+
+.database-results .ant-tabs-content,
+.database-results .ant-tabs-tabpane {
+  height: 100%;
+  min-height: 0;
+}
+
+.database-results .ant-tabs-tabpane {
+  overflow: auto;
+}
+
+.database-result-grid {
+  min-width: 100%;
+}
+
+.database-result-grid .ant-table-thead > tr > th {
+  padding: 7px 10px !important;
+  background: #f5f6f8 !important;
+  font-size: 12px;
+  font-weight: 650;
+  white-space: nowrap;
+}
+
+.database-result-grid .ant-table-tbody > tr > td {
+  height: 34px;
+  padding: 5px 10px !important;
+  font-family: "Geist Mono", "Cascadia Code", Consolas, monospace;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.database-result-grid .ant-table-tbody > tr:nth-child(even) > td {
+  background: #fafbfc;
+}
+
+.database-result-grid .ant-table-tbody > tr:hover > td {
+  background: #eaf3ff !important;
+}
+
+.database-cell-value {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.workbench-execution-info {
+  padding: 10px 12px;
+}
+
+.workbench-result-state {
+  display: grid;
+  height: 100%;
+  min-height: 160px;
+  place-items: center;
+}
+
+.database-workbench-loading {
+  min-height: 620px;
+}
+
+.database-workbench-page {
+  display: flex;
+  height: 100%;
+  min-height: 0;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.database-workbench-page > .ant-breadcrumb {
+  flex: 0 0 auto;
 }
 
 .admin-shell {
@@ -95,10 +466,21 @@ body {
   min-width: 0;
 }
 
+.admin-content-workbench {
+  height: calc(100vh - 64px);
+  padding: 14px 20px 18px;
+  overflow: hidden;
+}
+
 .page-container {
   width: 100%;
   max-width: 1440px;
   margin: 0 auto;
+}
+
+.page-container-workbench {
+  height: 100%;
+  max-width: none;
 }
 
 .page-heading {
@@ -182,7 +564,33 @@ body {
 }
 
 .detail-alert {
-  margin-bottom: 20px;
+  margin-bottom: 12px;
+  padding: 7px 12px !important;
+}
+
+.detail-alert.ant-alert-with-description {
+  align-items: center;
+}
+
+.detail-alert .ant-alert-content {
+  display: flex;
+  align-items: baseline;
+  min-width: 0;
+  gap: 10px;
+}
+
+.detail-alert .ant-alert-title {
+  flex: 0 0 auto;
+  margin-bottom: 0 !important;
+  font-size: 13px;
+  line-height: 20px;
+}
+
+.detail-alert .ant-alert-description {
+  min-width: 0;
+  margin-top: 0 !important;
+  font-size: 12px;
+  line-height: 20px;
 }
 
 .stats-grid {
@@ -503,6 +911,12 @@ body {
     padding: 20px 16px 32px;
   }
 
+  .admin-content-workbench {
+    height: auto;
+    min-height: calc(100vh - 64px);
+    overflow: visible;
+  }
+
   .admin-header {
     padding: 0 16px !important;
   }
@@ -539,6 +953,37 @@ body {
 
   .detail-heading > .ant-btn {
     align-self: flex-start;
+  }
+
+  .workbench-heading {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .database-workbench {
+    flex: none;
+    grid-template-columns: 1fr;
+    min-height: 720px;
+  }
+
+  .workbench-splitter {
+    display: none;
+  }
+
+  .database-editor-area {
+    grid-template-rows: 40px 320px minmax(260px, 1fr);
+  }
+
+  .database-navigator {
+    max-height: 220px;
+    border-right: 0;
+    border-bottom: 1px solid #e5e7eb;
+  }
+
+  .detail-alert .ant-alert-content {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 0;
   }
 
   .stats-grid {

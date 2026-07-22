@@ -1,4 +1,4 @@
 interface:
   display_name: "Dev Buddy"
-  short_description: "Operate Dev Buddy APIs and safely diagnose managed servers"
-  default_prompt: "Use $dev-buddy to inspect a managed Linux server and diagnose the reported issue safely."
+  short_description: "Safely inspect managed servers and relational databases"
+  default_prompt: "Use $dev-buddy to inspect managed infrastructure or execute a narrowly scoped, policy-filtered database operation."

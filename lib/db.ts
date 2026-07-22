@@ -69,10 +69,9 @@ export async function ensureSchema() {
           name VARCHAR(100) NOT NULL,
           key_prefix VARCHAR(24) NOT NULL,
           key_hash CHAR(64) NOT NULL UNIQUE,
-          scopes TEXT[] NOT NULL DEFAULT ARRAY['commands:execute'],
           last_used_at TIMESTAMPTZ,
           expires_at TIMESTAMPTZ,
-          revoked_at TIMESTAMPTZ,
+          enabled BOOLEAN NOT NULL DEFAULT TRUE,
           created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
         );
 
@@ -101,15 +100,134 @@ export async function ensureSchema() {
           exit_code INTEGER,
           duration_ms INTEGER,
           remote_address VARCHAR(128),
+          source VARCHAR(32) NOT NULL DEFAULT 'api',
           created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
           finished_at TIMESTAMPTZ
         );
 
         CREATE INDEX IF NOT EXISTS idx_command_executions_created_at ON command_executions(created_at DESC);
         CREATE INDEX IF NOT EXISTS idx_command_executions_server_id ON command_executions(server_id);
+
+        CREATE TABLE IF NOT EXISTS ssh_terminal_sessions (
+          id UUID PRIMARY KEY,
+          server_id UUID REFERENCES managed_servers(id) ON DELETE SET NULL,
+          server_name VARCHAR(100) NOT NULL,
+          status VARCHAR(24) NOT NULL,
+          remote_address VARCHAR(128),
+          bytes_in BIGINT NOT NULL DEFAULT 0,
+          bytes_out BIGINT NOT NULL DEFAULT 0,
+          close_reason TEXT,
+          started_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+          connected_at TIMESTAMPTZ,
+          ended_at TIMESTAMPTZ
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_ssh_terminal_sessions_started_at
+          ON ssh_terminal_sessions(started_at DESC);
+        CREATE INDEX IF NOT EXISTS idx_ssh_terminal_sessions_server_id
+          ON ssh_terminal_sessions(server_id);
       `))
       .then(() => getPool().query(`
         ALTER TABLE managed_servers DROP COLUMN IF EXISTS tags
+      `))
+      .then(() => getPool().query(`
+        ALTER TABLE command_executions
+          ADD COLUMN IF NOT EXISTS source VARCHAR(32) NOT NULL DEFAULT 'api'
+      `))
+      .then(() => getPool().query(`
+        ALTER TABLE project_api_keys DROP COLUMN IF EXISTS scopes
+      `))
+      .then(() => getPool().query(`
+        ALTER TABLE project_api_keys ADD COLUMN IF NOT EXISTS enabled BOOLEAN NOT NULL DEFAULT TRUE;
+        DO $$
+        BEGIN
+          IF EXISTS (
+            SELECT 1 FROM information_schema.columns
+            WHERE table_name='project_api_keys' AND column_name='revoked_at'
+          ) THEN
+            DELETE FROM project_api_keys WHERE revoked_at IS NOT NULL;
+          END IF;
+        END
+        $$;
+        ALTER TABLE project_api_keys DROP COLUMN IF EXISTS revoked_at;
+      `))
+      .then(() => getPool().query(`
+        CREATE TABLE IF NOT EXISTS managed_databases (
+          id UUID PRIMARY KEY,
+          name VARCHAR(100) NOT NULL,
+          engine VARCHAR(16) NOT NULL CHECK (engine IN ('postgresql', 'mysql')),
+          host VARCHAR(255) NOT NULL,
+          port INTEGER NOT NULL CHECK (port BETWEEN 1 AND 65535),
+          database_name VARCHAR(128) NOT NULL,
+          username VARCHAR(128) NOT NULL,
+          credential_encrypted TEXT NOT NULL,
+          connection_mode VARCHAR(16) NOT NULL CHECK (connection_mode IN ('direct', 'sshTunnel')),
+          ssh_server_id UUID REFERENCES managed_servers(id) ON DELETE RESTRICT,
+          tls_mode VARCHAR(16) NOT NULL DEFAULT 'disable' CHECK (tls_mode IN ('disable', 'require', 'verify-full')),
+          environment VARCHAR(32) NOT NULL DEFAULT 'production',
+          enabled BOOLEAN NOT NULL DEFAULT TRUE,
+          created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+          updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+          CHECK (
+            (connection_mode = 'direct' AND ssh_server_id IS NULL)
+            OR (connection_mode = 'sshTunnel' AND ssh_server_id IS NOT NULL)
+          )
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_managed_databases_ssh_server_id
+          ON managed_databases(ssh_server_id);
+
+        CREATE TABLE IF NOT EXISTS database_query_policies (
+          id UUID PRIMARY KEY,
+          name VARCHAR(100) NOT NULL,
+          pattern TEXT NOT NULL,
+          action VARCHAR(16) NOT NULL CHECK (action IN ('allow', 'deny')),
+          priority INTEGER NOT NULL DEFAULT 50 CHECK (priority BETWEEN 1 AND 100),
+          enabled BOOLEAN NOT NULL DEFAULT TRUE,
+          created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+          updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        );
+
+        CREATE TABLE IF NOT EXISTS database_query_executions (
+          id UUID PRIMARY KEY,
+          database_id UUID REFERENCES managed_databases(id) ON DELETE SET NULL,
+          api_key_id UUID REFERENCES project_api_keys(id) ON DELETE SET NULL,
+          database_name VARCHAR(100) NOT NULL,
+          sql TEXT NOT NULL,
+          reason TEXT NOT NULL DEFAULT '',
+          status VARCHAR(16) NOT NULL,
+          columns JSONB NOT NULL DEFAULT '[]'::jsonb,
+          row_count INTEGER NOT NULL DEFAULT 0,
+          truncated BOOLEAN NOT NULL DEFAULT FALSE,
+          duration_ms INTEGER,
+          error TEXT,
+          remote_address VARCHAR(128),
+          created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+          finished_at TIMESTAMPTZ
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_database_query_executions_created_at
+          ON database_query_executions(created_at DESC);
+        CREATE INDEX IF NOT EXISTS idx_database_query_executions_database_id
+          ON database_query_executions(database_id);
+
+      `))
+      .then(() => getPool().query(`
+        ALTER TABLE database_query_executions
+          ADD COLUMN IF NOT EXISTS policy_decision VARCHAR(16) NOT NULL DEFAULT 'deny';
+        ALTER TABLE database_query_executions
+          ADD COLUMN IF NOT EXISTS policy_reason TEXT NOT NULL DEFAULT '';
+        ALTER TABLE database_query_executions
+          ADD COLUMN IF NOT EXISTS statement_type VARCHAR(32) NOT NULL DEFAULT 'unknown';
+        ALTER TABLE database_query_executions
+          ADD COLUMN IF NOT EXISTS source VARCHAR(32) NOT NULL DEFAULT 'api';
+        UPDATE database_query_executions
+          SET policy_decision = CASE WHEN status IN ('running', 'success', 'failed') THEN 'allow' ELSE 'deny' END,
+              policy_reason = '迁移前内置只读 SQL 规则'
+          WHERE policy_reason = '';
+      `))
+      .then(() => getPool().query(`
+        DROP TABLE IF EXISTS database_terminal_sessions
       `))
       .then(() => undefined)
       .catch((error) => {

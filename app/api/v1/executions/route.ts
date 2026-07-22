@@ -13,8 +13,8 @@ export async function POST(request: NextRequest) {
   if (!request.headers.get("content-type")?.includes("application/json")) {
     return NextResponse.json({ error: "unsupported_media_type", message: "Content-Type 必须是 application/json" }, { status: 415 });
   }
-  const apiKey = await authenticateProjectApiKey(bearerToken(request), "commands:execute");
-  if (!apiKey) return NextResponse.json({ error: "invalid_api_key", message: "API Key 无效、已过期或缺少 commands:execute 权限" }, { status: 401 });
+  const apiKey = await authenticateProjectApiKey(bearerToken(request));
+  if (!apiKey) return NextResponse.json({ error: "invalid_api_key", message: "API Key 无效、已禁用或已过期" }, { status: 401 });
   if (!await checkApiKeyRateLimit(apiKey.id)) return NextResponse.json({ error: "rate_limited", message: "每个 API Key 每分钟最多执行 30 个任务" }, { status: 429 });
 
   let body: unknown;

@@ -1,12 +1,13 @@
 "use client";
 
 import { DeleteOutlined, EditOutlined, PlusOutlined } from "@ant-design/icons";
-import { App, Alert, Breadcrumb, Button, Card, Form, Input, InputNumber, Modal, Popconfirm, Select, Space, Switch, Table, Tag, Typography } from "antd";
+import { App, Breadcrumb, Button, Card, Form, Input, InputNumber, Modal, Popconfirm, Select, Space, Switch, Table, Tag, Typography } from "antd";
 import type { TableColumnsType } from "antd";
 import { useState, useTransition } from "react";
 import type { CommandPolicy } from "@/lib/server-management";
 import { createPolicy, deletePolicy, editPolicy } from "./actions";
 import type { PolicyInput } from "./actions";
+import NoticePopover from "@/app/notice-popover";
 
 const { Title, Text } = Typography;
 
@@ -57,9 +58,8 @@ export default function PoliciesView({ policies }: { policies: CommandPolicy[] }
 
   return <>
     <Breadcrumb items={[{ title: "首页" }, { title: "服务器运维" }, { title: "命令策略" }]} />
-    <div className="page-heading"><div><Title level={2}>命令策略</Title><Text type="secondary">按优先级匹配正则规则；内置高危拦截永远优先</Text></div><Button type="primary" icon={<PlusOutlined />} onClick={openCreateModal}>新增策略</Button></div>
-    <Alert type="warning" showIcon className="detail-alert" message="默认安全策略" description="管道、重定向、命令连接、敏感文件读取及高危操作会被强制拒绝；未匹配自定义策略的命令仅允许内置只读程序。" />
-    <Card className="detail-card"><Table rowKey="id" columns={columns} dataSource={policies} pagination={false} locale={{ emptyText: "暂无自定义策略，将使用内置只读白名单" }} /></Card>
+    <div className="page-heading"><div><Title level={2}>命令策略<NoticePopover title="未匹配策略时默认允许" description="系统不再内置高危命令或参数拦截。请通过高优先级 deny 策略保护删除、提权、重启和敏感文件访问等操作。" /></Title><Text type="secondary">按优先级匹配正则规则，第一条命中的策略生效</Text></div><Button type="primary" icon={<PlusOutlined />} onClick={openCreateModal}>新增策略</Button></div>
+    <Card className="detail-card"><Table rowKey="id" columns={columns} dataSource={policies} pagination={false} locale={{ emptyText: "暂无自定义策略，普通命令将默认允许" }} /></Card>
     <Modal title={editingPolicy ? "编辑命令策略" : "新增命令策略"} open={open} onCancel={closeModal} onOk={() => form.submit()} okText={editingPolicy ? "保存" : "创建"} confirmLoading={pending} destroyOnHidden>
       <Form form={form} layout="vertical" initialValues={{ action: "deny", priority: 50, enabled: true }} onFinish={submit}>
         <Form.Item name="name" label="名称" rules={[{ required: true }]}><Input placeholder="允许查看 nginx 配置摘要" /></Form.Item>

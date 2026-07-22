@@ -8,7 +8,9 @@ import {
   CloudServerOutlined,
   CodeOutlined,
   DesktopOutlined,
+  DatabaseOutlined,
   FileSearchOutlined,
+  HistoryOutlined,
   KeyOutlined,
   LineChartOutlined,
   MenuFoldOutlined,
@@ -30,7 +32,8 @@ function Shell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const [collapsed, setCollapsed] = useState(false);
-  const selectedKey = ["/servers", "/command-policies", "/executions", "/api-keys", "/aliyun/resources", "/aliyun/costs", "/aliyun/risks"].find((key) => pathname.startsWith(key))
+  const databaseWorkbench = /^\/databases\/[^/]+\/workbench/.test(pathname);
+  const selectedKey = ["/database-executions", "/database-policies", "/databases", "/terminal-sessions", "/servers", "/command-policies", "/executions", "/api-keys", "/aliyun/resources", "/aliyun/costs", "/aliyun/risks"].find((key) => pathname.startsWith(key))
     ?? (pathname.startsWith("/aliyun") ? "/aliyun" : "/");
   const accountItems: MenuProps["items"] = [
     { key: "profile", label: "个人资料" },
@@ -48,7 +51,7 @@ function Shell({ children }: { children: ReactNode }) {
           theme="dark"
           mode="inline"
           selectedKeys={[selectedKey]}
-          defaultOpenKeys={["server-operations", "aliyun-management", "system-management"]}
+          defaultOpenKeys={["server-operations", "database-management", "aliyun-management", "system-management"]}
           onClick={({ key }) => router.push(key)}
           items={[
             { key: "/", icon: <TeamOutlined />, label: "用户管理" },
@@ -60,6 +63,17 @@ function Shell({ children }: { children: ReactNode }) {
                 { key: "/servers", icon: <CloudServerOutlined />, label: "服务器列表" },
                 { key: "/command-policies", icon: <CodeOutlined />, label: "命令策略" },
                 { key: "/executions", icon: <FileSearchOutlined />, label: "执行审计" },
+                { key: "/terminal-sessions", icon: <HistoryOutlined />, label: "SSH 会话审计" },
+              ],
+            },
+            {
+              key: "database-management",
+              icon: <DatabaseOutlined />,
+              label: "数据库管理",
+              children: [
+                { key: "/databases", icon: <DatabaseOutlined />, label: "数据库列表" },
+                { key: "/database-policies", icon: <CodeOutlined />, label: "SQL 执行策略" },
+                { key: "/database-executions", icon: <FileSearchOutlined />, label: "SQL 执行审计" },
               ],
             },
             {
@@ -97,7 +111,11 @@ function Shell({ children }: { children: ReactNode }) {
             </Dropdown>
           </Space>
         </Header>
-        <Content className="admin-content"><div className="page-container">{children}</div></Content>
+        <Content className={`admin-content${databaseWorkbench ? " admin-content-workbench" : ""}`}>
+          <div className={`page-container${databaseWorkbench ? " page-container-workbench" : ""}`}>
+            {children}
+          </div>
+        </Content>
       </Layout>
     </Layout>
   );

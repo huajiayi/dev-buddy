@@ -79,10 +79,12 @@ def request_json(path: str, method: str = "GET", payload: dict[str, Any] | None 
 
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description="Call the Dev Buddy managed-server API")
+    parser = argparse.ArgumentParser(description="Call the Dev Buddy infrastructure API")
     subparsers = parser.add_subparsers(dest="operation", required=True)
     subparsers.add_parser("servers", help="List enabled managed servers")
     subparsers.add_parser("policies", help="List command policies")
+    subparsers.add_parser("databases", help="List enabled managed databases")
+    subparsers.add_parser("db-policies", help="List database SQL policies")
 
     execute = subparsers.add_parser("exec", help="Execute one filtered diagnostic command")
     execute.add_argument("--server-id", required=True)
@@ -96,6 +98,19 @@ def build_parser() -> argparse.ArgumentParser:
     policy.add_argument("--action", required=True, choices=("allow", "deny"))
     policy.add_argument("--priority", required=True, type=int, choices=range(1, 101), metavar="1..100")
     policy.add_argument("--disabled", action="store_true")
+
+    db_query = subparsers.add_parser("db-query", help="Execute one policy-filtered SQL statement")
+    db_query.add_argument("--database-id", required=True)
+    db_query.add_argument("--sql", required=True)
+    db_query.add_argument("--reason", required=True)
+    db_query.add_argument("--timeout", type=int, default=15, choices=range(1, 31), metavar="1..30")
+
+    db_policy = subparsers.add_parser("db-policy-create", help="Create one database SQL policy")
+    db_policy.add_argument("--name", required=True)
+    db_policy.add_argument("--pattern", required=True)
+    db_policy.add_argument("--action", required=True, choices=("allow", "deny"))
+    db_policy.add_argument("--priority", required=True, type=int, choices=range(1, 101), metavar="1..100")
+    db_policy.add_argument("--disabled", action="store_true")
     return parser
 
 
@@ -106,6 +121,10 @@ def main() -> int:
             result = request_json("/api/v1/servers")
         elif args.operation == "policies":
             result = request_json("/api/v1/command-policies")
+        elif args.operation == "databases":
+            result = request_json("/api/v1/databases")
+        elif args.operation == "db-policies":
+            result = request_json("/api/v1/database-policies")
         elif args.operation == "exec":
             result = request_json(
                 "/api/v1/executions",
@@ -117,9 +136,32 @@ def main() -> int:
                     "timeoutSeconds": args.timeout,
                 },
             )
-        else:
+        elif args.operation == "policy-create":
             result = request_json(
                 "/api/v1/command-policies",
+                method="POST",
+                payload={
+                    "name": args.name,
+                    "pattern": args.pattern,
+                    "action": args.action,
+                    "priority": args.priority,
+                    "enabled": not args.disabled,
+                },
+            )
+        elif args.operation == "db-query":
+            result = request_json(
+                "/api/v1/database-queries",
+                method="POST",
+                payload={
+                    "databaseId": args.database_id,
+                    "sql": args.sql,
+                    "reason": args.reason,
+                    "timeoutSeconds": args.timeout,
+                },
+            )
+        else:
+            result = request_json(
+                "/api/v1/database-policies",
                 method="POST",
                 payload={
                     "name": args.name,
