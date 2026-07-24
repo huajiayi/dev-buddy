@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createCommandPolicy, removeCommandPolicy, updateCommandPolicy } from "@/lib/server-management";
+import { requireAdmin } from "@/lib/auth";
 
 export type PolicyInput = {
   name: string;
@@ -28,6 +29,7 @@ function validatePolicyInput(input: PolicyInput) {
 
 export async function createPolicy(input: PolicyInput) {
   try {
+    await requireAdmin();
     const validated = validatePolicyInput(input);
     if ("error" in validated) return { ok: false, error: validated.error };
     await createCommandPolicy(validated.value);
@@ -40,6 +42,7 @@ export async function createPolicy(input: PolicyInput) {
 
 export async function editPolicy(id: string, input: PolicyInput) {
   try {
+    await requireAdmin();
     const validated = validatePolicyInput(input);
     if ("error" in validated) return { ok: false, error: validated.error };
     await updateCommandPolicy({ id, ...validated.value });
@@ -52,6 +55,7 @@ export async function editPolicy(id: string, input: PolicyInput) {
 
 export async function deletePolicy(id: string) {
   try {
+    await requireAdmin();
     await removeCommandPolicy(id);
     revalidatePath("/command-policies");
     return { ok: true };

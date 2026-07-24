@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createManagedServer, removeManagedServer, setManagedServerEnabled, testManagedServer, updateManagedServer } from "@/lib/server-management";
+import { requireUser } from "@/lib/auth";
 
 export type ServerInput = {
   name: string; host: string; port: number; username: string;
@@ -29,6 +30,7 @@ function validateServerInput(input: ServerInput, requireCredential: boolean) {
 
 export async function createServer(input: ServerInput) {
   try {
+    await requireUser();
     const validated = validateServerInput(input, true);
     if ("error" in validated) return { ok: false, error: validated.error };
     const id = await createManagedServer({ ...validated.value, credential: validated.value.credential! });
@@ -41,6 +43,7 @@ export async function createServer(input: ServerInput) {
 
 export async function editServer(id: string, input: ServerInput) {
   try {
+    await requireUser();
     const validated = validateServerInput(input, false);
     if ("error" in validated) return { ok: false, error: validated.error };
     await updateManagedServer({ id, ...validated.value });
@@ -53,6 +56,7 @@ export async function editServer(id: string, input: ServerInput) {
 
 export async function deleteServer(id: string) {
   try {
+    await requireUser();
     await removeManagedServer(id);
     revalidatePath("/servers");
     return { ok: true };
@@ -63,6 +67,7 @@ export async function deleteServer(id: string) {
 
 export async function toggleServer(id: string, enabled: boolean) {
   try {
+    await requireUser();
     await setManagedServerEnabled(id, enabled);
     revalidatePath("/servers");
     return { ok: true };
@@ -73,6 +78,7 @@ export async function toggleServer(id: string, enabled: boolean) {
 
 export async function testServerConnection(id: string) {
   try {
+    await requireUser();
     const result = await testManagedServer(id);
     return { ok: result.exitCode === 0 && result.stdout.includes("dev-buddy-connected"), error: result.stderr || undefined };
   } catch (error) {

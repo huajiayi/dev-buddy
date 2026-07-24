@@ -2,9 +2,11 @@
 
 import { revalidatePath } from "next/cache";
 import { createProjectApiKey, removeProjectApiKey, setProjectApiKeyEnabled } from "@/lib/server-management";
+import { requireAdmin } from "@/lib/auth";
 
 export async function createApiKey(nameValue: string) {
   try {
+    await requireAdmin();
     const name = nameValue.trim();
     if (!name) return { ok: false, error: "请输入 API Key 名称" };
     const result = await createProjectApiKey(name);
@@ -17,6 +19,7 @@ export async function createApiKey(nameValue: string) {
 
 export async function deleteApiKey(id: string) {
   try {
+    await requireAdmin();
     await removeProjectApiKey(id);
     revalidatePath("/api-keys");
     return { ok: true };
@@ -27,6 +30,7 @@ export async function deleteApiKey(id: string) {
 
 export async function toggleApiKey(id: string, enabled: boolean) {
   try {
+    await requireAdmin();
     await setProjectApiKeyEnabled(id, enabled);
     revalidatePath("/api-keys");
     return { ok: true };

@@ -54,6 +54,7 @@ export default function SshTerminalView({ server }: { server: ManagedServer }) {
     let ready = false;
     let disposed = false;
     const sendResize = () => {
+      if (!containerRef.current?.clientWidth || !containerRef.current.clientHeight) return;
       fit.fit();
       if (ready && websocket?.readyState === WebSocket.OPEN) {
         websocket.send(JSON.stringify({
@@ -63,8 +64,16 @@ export default function SshTerminalView({ server }: { server: ManagedServer }) {
         }));
       }
     };
-    const resizeObserver = new ResizeObserver(sendResize);
+    let resizeFrame = 0;
+    const scheduleResize = () => {
+      cancelAnimationFrame(resizeFrame);
+      resizeFrame = requestAnimationFrame(sendResize);
+    };
+    const resizeObserver = new ResizeObserver(scheduleResize);
     resizeObserver.observe(containerRef.current);
+    void document.fonts.ready.then(() => {
+      if (!disposed) scheduleResize();
+    });
     const inputSubscription = terminal.onData((data) => {
       if (ready && websocket?.readyState === WebSocket.OPEN) {
         websocket.send(JSON.stringify({ type: "input", data }));
@@ -99,7 +108,7 @@ export default function SshTerminalView({ server }: { server: ManagedServer }) {
             ready = true;
             setStatus("connected");
             terminal.writeln("\r\n\x1b[32mSSH 已连接\x1b[0m");
-            sendResize();
+            scheduleResize();
             terminal.focus();
           } else if (message.type === "error") {
             setStatus("error");
@@ -122,9 +131,10 @@ export default function SshTerminalView({ server }: { server: ManagedServer }) {
       };
     });
 
-    sendResize();
+    scheduleResize();
     return () => {
       disposed = true;
+      cancelAnimationFrame(resizeFrame);
       inputSubscription.dispose();
       resizeObserver.disconnect();
       websocket?.close(1000, "离开终端页面");
@@ -141,7 +151,7 @@ export default function SshTerminalView({ server }: { server: ManagedServer }) {
     error: { color: "error", text: "连接失败" },
   };
 
-  return <>
+  return <div className="ssh-terminal-page">
     <Breadcrumb items={[
       { title: "首页" },
       { title: "服务器运维" },
@@ -183,8 +193,8 @@ export default function SshTerminalView({ server }: { server: ManagedServer }) {
         >清屏</Button>
       </Space>
     </div>
-    <Card className="terminal-card" styles={{ body: { padding: 0 } }}>
+    <Card className="terminal-card" styles={{ body: { padding: 0, height: "100%", minHeight: 0 } }}>
       <div ref={containerRef} className="server-terminal ssh-interactive-terminal" />
     </Card>
-  </>;
+  </div>;
 }

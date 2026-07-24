@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createDatabaseQueryPolicy, removeDatabaseQueryPolicy, updateDatabaseQueryPolicy } from "@/lib/database-management";
+import { requireAdmin } from "@/lib/auth";
 
 export type DatabasePolicyInput = {
   name: string; pattern: string; action: "allow" | "deny"; priority: number; enabled: boolean;
@@ -17,18 +18,19 @@ function validate(input: DatabasePolicyInput) {
 
 export async function createPolicy(input: DatabasePolicyInput) {
   try {
+    await requireAdmin();
     const checked = validate(input); if ("error" in checked) return { ok: false, error: checked.error };
     await createDatabaseQueryPolicy(checked.value); revalidatePath("/database-policies"); return { ok: true };
   } catch (error) { return { ok: false, error: error instanceof Error ? error.message : "数据库策略保存失败" }; }
 }
 export async function editPolicy(id: string, input: DatabasePolicyInput) {
   try {
+    await requireAdmin();
     const checked = validate(input); if ("error" in checked) return { ok: false, error: checked.error };
     await updateDatabaseQueryPolicy({ id, ...checked.value }); revalidatePath("/database-policies"); return { ok: true };
   } catch (error) { return { ok: false, error: error instanceof Error ? error.message : "数据库策略更新失败" }; }
 }
 export async function deletePolicy(id: string) {
-  try { await removeDatabaseQueryPolicy(id); revalidatePath("/database-policies"); return { ok: true }; }
+  try { await requireAdmin(); await removeDatabaseQueryPolicy(id); revalidatePath("/database-policies"); return { ok: true }; }
   catch (error) { return { ok: false, error: error instanceof Error ? error.message : "数据库策略删除失败" }; }
 }
-

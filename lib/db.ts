@@ -229,6 +229,45 @@ export async function ensureSchema() {
       .then(() => getPool().query(`
         DROP TABLE IF EXISTS database_terminal_sessions
       `))
+      .then(() => getPool().query(`
+        CREATE TABLE IF NOT EXISTS app_users (
+          id UUID PRIMARY KEY,
+          username VARCHAR(64) NOT NULL,
+          display_name VARCHAR(100) NOT NULL,
+          email VARCHAR(255),
+          password_hash TEXT,
+          role VARCHAR(16) NOT NULL DEFAULT 'user'
+            CHECK (role IN ('admin', 'operator', 'user')),
+          enabled BOOLEAN NOT NULL DEFAULT TRUE,
+          lark_open_id VARCHAR(128),
+          lark_union_id VARCHAR(128),
+          lark_tenant_key VARCHAR(128),
+          avatar_url TEXT,
+          last_login_at TIMESTAMPTZ,
+          created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+          updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        );
+
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_app_users_username_lower
+          ON app_users (LOWER(username));
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_app_users_email_lower
+          ON app_users (LOWER(email)) WHERE email IS NOT NULL;
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_app_users_lark_union_id
+          ON app_users (lark_union_id) WHERE lark_union_id IS NOT NULL;
+
+        CREATE TABLE IF NOT EXISTS auth_sessions (
+          id UUID PRIMARY KEY,
+          user_id UUID NOT NULL REFERENCES app_users(id) ON DELETE CASCADE,
+          token_hash CHAR(64) NOT NULL UNIQUE,
+          expires_at TIMESTAMPTZ NOT NULL,
+          created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_auth_sessions_user_id
+          ON auth_sessions(user_id);
+        CREATE INDEX IF NOT EXISTS idx_auth_sessions_expires_at
+          ON auth_sessions(expires_at);
+      `))
       .then(() => undefined)
       .catch((error) => {
         schemaReady = null;

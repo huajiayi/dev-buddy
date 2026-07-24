@@ -2,11 +2,13 @@
 
 import { revalidatePath } from "next/cache";
 import { insertAliyunAccount, removeAliyunAccount, setAliyunAccountSite, updateAliyunAccount } from "@/lib/aliyun-accounts";
+import { requireUser } from "@/lib/auth";
 
 type AccountInput = { name: string; accessKeyId: string; accessKeySecret: string; site: "china" | "international" };
 
 export async function createAliyunAccount(input: AccountInput) {
   try {
+    await requireUser();
     const name = input.name.trim();
     const accessKeyId = input.accessKeyId.trim();
     const accessKeySecret = input.accessKeySecret.trim();
@@ -21,6 +23,7 @@ export async function createAliyunAccount(input: AccountInput) {
 
 export async function updateAliyunAccountSite(id: string, site: "china" | "international") {
   try {
+    await requireUser();
     if (!["china", "international"].includes(site)) return { ok: false, error: "无效的阿里云站点" };
     await setAliyunAccountSite(id, site);
     revalidatePath("/aliyun");
@@ -33,6 +36,7 @@ export async function updateAliyunAccountSite(id: string, site: "china" | "inter
 
 export async function editAliyunAccount(id: string, input: AccountInput) {
   try {
+    await requireUser();
     const name = input.name.trim();
     const accessKeyId = input.accessKeyId.trim();
     const accessKeySecret = input.accessKeySecret.trim();
@@ -56,6 +60,7 @@ export async function editAliyunAccount(id: string, input: AccountInput) {
 
 export async function deleteAliyunAccount(id: string) {
   try {
+    await requireUser();
     await removeAliyunAccount(id);
     revalidatePath("/aliyun");
     return { ok: true };

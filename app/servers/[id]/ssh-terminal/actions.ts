@@ -2,6 +2,7 @@
 
 import { listManagedServers } from "@/lib/server-management";
 import { createSshTerminalTicket } from "@/lib/terminal-ticket";
+import { requireUser } from "@/lib/auth";
 
 export async function issueSshTerminalTicket(serverIdValue: string) {
   const serverId = serverIdValue.trim();
@@ -9,6 +10,7 @@ export async function issueSshTerminalTicket(serverIdValue: string) {
     return { ok: false as const, error: "服务器 ID 格式错误" };
   }
   try {
+    await requireUser();
     const server = (await listManagedServers()).find((item) => item.id === serverId);
     if (!server) return { ok: false as const, error: "服务器不存在" };
     if (!server.enabled) return { ok: false as const, error: "服务器已禁用" };

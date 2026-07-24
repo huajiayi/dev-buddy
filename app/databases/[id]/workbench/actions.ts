@@ -6,6 +6,7 @@ import {
   listDatabaseTables,
   listManagedDatabases,
 } from "@/lib/database-management";
+import { requireUser } from "@/lib/auth";
 
 function validId(value: string) {
   return /^[0-9a-f-]{36}$/i.test(value);
@@ -20,6 +21,7 @@ export async function loadSchemaTables(databaseId: string, schema: string) {
     return { ok: false as const, error: "数据库或 Schema 参数无效" };
   }
   try {
+    await requireUser();
     return { ok: true as const, data: await listDatabaseTables(databaseId, schema) };
   } catch (error) {
     return { ok: false as const, error: error instanceof Error ? error.message : "表结构读取失败" };
@@ -31,6 +33,7 @@ export async function loadTableColumns(databaseId: string, schema: string, table
     return { ok: false as const, error: "数据库、Schema 或表参数无效" };
   }
   try {
+    await requireUser();
     return { ok: true as const, data: await listDatabaseColumns(databaseId, schema, table) };
   } catch (error) {
     return { ok: false as const, error: error instanceof Error ? error.message : "字段结构读取失败" };
@@ -49,6 +52,7 @@ export async function executeWorkbenchSql(
   }
   if (!sql) return { ok: false as const, error: "SQL 不能为空" };
   try {
+    await requireUser();
     const database = (await listManagedDatabases()).find((item) => item.id === databaseId);
     if (!database) return { ok: false as const, error: "数据库不存在" };
     const result = await executeDatabaseQuery({

@@ -1,6 +1,7 @@
 "use server";
 
 import { executeManagedCommand } from "@/lib/server-management";
+import { requireUser } from "@/lib/auth";
 
 export async function executeTerminalCommand(serverIdValue: string, commandValue: string) {
   const serverId = serverIdValue.trim();
@@ -10,6 +11,7 @@ export async function executeTerminalCommand(serverIdValue: string, commandValue
   if (command.length > 2000) return { ok: false as const, error: "命令不能超过 2000 个字符" };
 
   try {
+    await requireUser();
     const result = await executeManagedCommand({
       serverId,
       command,
@@ -22,4 +24,3 @@ export async function executeTerminalCommand(serverIdValue: string, commandValue
     return { ok: false as const, error: error instanceof Error ? error.message : "命令执行失败" };
   }
 }
-

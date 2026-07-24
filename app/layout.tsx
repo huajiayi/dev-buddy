@@ -14,8 +14,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Dev Admin",
-  description: "后台管理系统",
+  title: "Dev Buddy",
+  description: "基础设施管理平台",
 };
 
 export default function RootLayout({
