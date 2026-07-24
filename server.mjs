@@ -85,6 +85,8 @@ function verifyTicket(ticket) {
     payload.kind !== "ssh" ||
     typeof payload.targetId !== "string" ||
     !/^[0-9a-f-]{36}$/i.test(payload.targetId) ||
+    typeof payload.actorUserId !== "string" ||
+    !/^[0-9a-f-]{36}$/i.test(payload.actorUserId) ||
     typeof payload.exp !== "number" ||
     typeof payload.nonce !== "string"
   ) {
@@ -188,18 +190,21 @@ websocketServer.on("connection", async (websocket, request, ticket) => {
 
   try {
     const result = await getPool().query(
-      `SELECT id, name, host, port, username, auth_type, credential_encrypted
-       FROM managed_servers
-       WHERE id=$1 AND enabled=TRUE`,
-      [ticket.targetId],
+      `SELECT s.id,s.name,s.host,s.port,s.username,s.auth_type,s.credential_encrypted
+       FROM managed_servers s
+       JOIN app_users u ON u.id=$2 AND u.enabled=TRUE
+       LEFT JOIN user_server_grants g ON g.user_id=u.id AND g.server_id=s.id
+       WHERE s.id=$1 AND s.enabled=TRUE
+         AND (u.role='admin' OR g.can_open_ssh=TRUE)`,
+      [ticket.targetId, ticket.actorUserId],
     );
     serverRow = result.rows[0];
     if (!serverRow) throw new Error("服务器不存在或已禁用");
     await getPool().query(
       `INSERT INTO ssh_terminal_sessions
-       (id, server_id, server_name, status, remote_address)
-       VALUES ($1,$2,$3,'connecting',$4)`,
-      [sessionId, serverRow.id, serverRow.name, remoteAddress],
+       (id, server_id, actor_user_id, server_name, status, remote_address)
+       VALUES ($1,$2,$3,$4,'connecting',$5)`,
+      [sessionId, serverRow.id, ticket.actorUserId, serverRow.name, remoteAddress],
     );
 
     const credential = JSON.parse(decryptSecret(serverRow.credential_encrypted));

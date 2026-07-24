@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
-import AdminShell from "../admin-shell";
+import AdminOnlyShell from "../admin-only-shell";
 
 export default function AliyunLayout({ children }: { children: ReactNode }) {
-  return <AdminShell>{children}</AdminShell>;
+  return <AdminOnlyShell>{children}</AdminOnlyShell>;
 }

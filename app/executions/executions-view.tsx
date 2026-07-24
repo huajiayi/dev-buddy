@@ -11,7 +11,7 @@ export default function ExecutionsView({ executions }: { executions: CommandExec
   const columns: TableColumnsType<CommandExecution> = [
     { title: "时间", dataIndex: "createdAt", width: 180, render: (value: string) => new Date(value).toLocaleString("zh-CN") },
     { title: "服务器", width: 170, render: (_, item) => <div><Text strong>{item.serverName || "已删除服务器"}</Text><div><Text type="secondary" className="user-subtext">{item.serverId}</Text></div></div> },
-    { title: "调用方", width: 150, render: (_, item) => item.source === "admin-terminal" ? "后台终端" : item.apiKeyName || "已删除 Key" },
+    { title: "调用身份", width: 180, render: (_, item) => <div><Text>{item.actorUserName || "历史记录"}</Text><div><Text type="secondary">{item.source === "admin-terminal" ? "后台终端" : item.apiKeyName || "已删除 Key"}</Text></div></div> },
     { title: "命令", dataIndex: "command", ellipsis: true, render: (value: string) => <Text code>{value}</Text> },
     { title: "策略", dataIndex: "policyDecision", width: 90, render: (value: string) => <Tag color={value === "allow" ? "green" : "red"}>{value}</Tag> },
     { title: "状态", dataIndex: "status", width: 100, render: (value: string) => <Tag color={statusColors[value]}>{value}</Tag> },

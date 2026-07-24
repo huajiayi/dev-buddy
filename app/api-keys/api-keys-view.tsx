@@ -25,10 +25,10 @@ export default function ApiKeysView({ apiKeys }: { apiKeys: ProjectApiKey[] }) {
   ];
 
   return <>
-    <Breadcrumb items={[{ title: "首页" }, { title: "系统管理" }, { title: "API Key" }]} />
-    <div className="page-heading"><div><Title level={2}>项目 API Key<NoticePopover title="密钥只在创建时显示一次" description="API Key 当前仅负责身份认证，不携带功能权限范围。请只通过 Authorization: Bearer 请求头传递。" /></Title><Text type="secondary">项目级机器身份，后续权限将由关联用户的角色统一判断</Text></div><Button type="primary" icon={<PlusOutlined />} onClick={() => setCreateOpen(true)}>创建 API Key</Button></div>
+    <Breadcrumb items={[{ title: "首页" }, { title: "系统管理" }, { title: "我的 API Key" }]} />
+    <div className="page-heading"><div><Title level={2}>我的 API Key<NoticePopover title="密钥只在创建时显示一次" description="API Key 自动绑定当前用户，不配置权限范围；调用能力实时继承你的角色和资源授权。请只通过 Authorization: Bearer 请求头传递。" /></Title><Text type="secondary">用于 Skill 和外部程序以你的身份调用项目 API</Text></div><Button type="primary" icon={<PlusOutlined />} onClick={() => setCreateOpen(true)}>创建 API Key</Button></div>
     <Card className="detail-card"><Table rowKey="id" columns={columns} dataSource={apiKeys} scroll={{ x: 900 }} pagination={false} locale={{ emptyText: "暂无 API Key" }} /></Card>
-    <Modal title="创建项目 API Key" open={createOpen} onCancel={() => setCreateOpen(false)} onOk={() => startTransition(async () => { const result = await createApiKey(name); if (!result.ok) { message.error(result.error); return; } setCreateOpen(false); setName(""); setSecret(result.value); })} confirmLoading={pending}><Input prefix={<KeyOutlined />} value={name} onChange={(event) => setName(event.target.value)} placeholder="例如 Codex 排障 Skill" maxLength={100} /></Modal>
+    <Modal title="创建我的 API Key" open={createOpen} onCancel={() => setCreateOpen(false)} onOk={() => startTransition(async () => { const result = await createApiKey(name); if (!result.ok) { message.error(result.error); return; } setCreateOpen(false); setName(""); setSecret(result.value); })} confirmLoading={pending}><Input prefix={<KeyOutlined />} value={name} onChange={(event) => setName(event.target.value)} placeholder="例如 Codex 排障 Skill" maxLength={100} /></Modal>
     <Modal title="请立即保存 API Key" open={Boolean(secret)} onCancel={() => setSecret(undefined)} footer={<Button type="primary" onClick={() => setSecret(undefined)}>我已保存</Button>} closable={false} mask={{ closable: false }}>
       <Alert type="warning" showIcon title="关闭后无法再次查看该密钥" />
       <Paragraph copyable={{ text: secret }} className="api-key-secret"><Text code>{secret}</Text></Paragraph>

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { authenticateProjectApiKey, checkApiKeyRateLimit, executeManagedCommand } from "@/lib/server-management";
+import { requireServerAccess } from "@/lib/authorization";
 
 export const runtime = "nodejs";
 export const maxDuration = 65;
@@ -34,10 +35,12 @@ export async function POST(request: NextRequest) {
   }
 
   try {
+    await requireServerAccess({ userId: apiKey.ownerUserId, role: apiKey.ownerRole }, input.serverId, "executeCommand");
     const forwarded = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim();
     const result = await executeManagedCommand({
       serverId: input.serverId,
       apiKeyId: apiKey.id,
+      actorUserId: apiKey.ownerUserId,
       command: input.command,
       reason: typeof input.reason === "string" ? input.reason : "",
       timeoutSeconds,
@@ -47,6 +50,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(result, { status });
   } catch (error) {
     const message = error instanceof Error ? error.message : "命令执行失败";
-    return NextResponse.json({ error: "execution_failed", message }, { status: message === "服务器不存在" ? 404 : 500 });
+    const denied = message.includes("操作权限");
+    return NextResponse.json({ error: denied ? "resource_not_found" : "execution_failed", message: denied ? "服务器不存在或未授权" : message }, { status: denied || message === "服务器不存在" ? 404 : 500 });
   }
 }

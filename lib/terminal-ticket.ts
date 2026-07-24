@@ -15,10 +15,11 @@ function getTicketSecret() {
   return secret;
 }
 
-export function createSshTerminalTicket(serverId: string) {
+export function createSshTerminalTicket(serverId: string, actorUserId: string) {
   const payload = Buffer.from(JSON.stringify({
     kind: "ssh",
     targetId: serverId,
+    actorUserId,
     exp: Date.now() + TICKET_TTL_MS,
     nonce: randomBytes(18).toString("base64url"),
   })).toString("base64url");

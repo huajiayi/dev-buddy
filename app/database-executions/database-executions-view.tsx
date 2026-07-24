@@ -11,7 +11,7 @@ export default function DatabaseExecutionsView({ executions }: { executions: Dat
   const columns: TableColumnsType<DatabaseQueryExecution> = [
     { title: "数据库", dataIndex: "databaseName", width: 160 },
     { title: "SQL", dataIndex: "sql", ellipsis: true, render: (value) => <Text code>{value}</Text> },
-    { title: "调用方", width: 140, render: (_, item) => item.source === "admin-workbench" ? "后台工作台" : item.apiKeyName || "已删除 Key" },
+    { title: "调用身份", width: 180, render: (_, item) => <div><Text>{item.actorUserName || "历史记录"}</Text><div><Text type="secondary">{item.source === "admin-workbench" ? "后台工作台" : item.apiKeyName || "已删除 Key"}</Text></div></div> },
     { title: "状态", dataIndex: "status", width: 100, render: (value) => <Tag color={value === "success" ? "success" : value === "rejected" ? "warning" : "error"}>{value}</Tag> },
     { title: "语句类型", dataIndex: "statementType", width: 110 },
     { title: "策略", dataIndex: "policyDecision", width: 90, render: (value) => <Tag color={value === "allow" ? "green" : "red"}>{value}</Tag> },
@@ -29,6 +29,7 @@ export default function DatabaseExecutionsView({ executions }: { executions: Dat
       {selected && <><Descriptions column={2} items={[
         { key: "db", label: "数据库", children: selected.databaseName },
         { key: "key", label: "调用方", children: selected.source === "admin-workbench" ? "后台工作台" : selected.apiKeyName || "已删除 Key" },
+        { key: "actor", label: "操作用户", children: selected.actorUserName || "历史记录" },
         { key: "status", label: "状态", children: selected.status },
         { key: "statementType", label: "语句类型", children: selected.statementType },
         { key: "policyDecision", label: "策略决策", children: selected.policyDecision },

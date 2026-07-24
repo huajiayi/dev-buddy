@@ -33,6 +33,12 @@ export async function POST(request: NextRequest) {
       { status: 401 },
     );
   }
+  if (apiKey.ownerRole !== "admin") {
+    return NextResponse.json(
+      { error: "forbidden", message: "只有管理员可以新增命令策略" },
+      { status: 403 },
+    );
+  }
 
   let body: unknown;
   try {

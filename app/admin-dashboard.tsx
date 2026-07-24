@@ -1,20 +1,33 @@
 "use client";
 
-import { DeleteOutlined, EditOutlined, KeyOutlined, PlusOutlined, SearchOutlined, UserOutlined } from "@ant-design/icons";
-import { App, Avatar, Breadcrumb, Button, Flex, Form, Input, Modal, Popconfirm, Select, Space, Switch, Table, Tag, Typography, theme } from "antd";
+import { DeleteOutlined, EditOutlined, KeyOutlined, PlusOutlined, SafetyCertificateOutlined, SearchOutlined, UserOutlined } from "@ant-design/icons";
+import { App, Avatar, Breadcrumb, Button, Checkbox, Flex, Form, Input, Modal, Popconfirm, Select, Space, Switch, Table, Tag, Typography, theme } from "antd";
 import type { TableColumnsType } from "antd";
 import { useMemo, useState, useTransition } from "react";
 import type { AppUser, UserRole } from "@/lib/auth";
-import { createUserAction, deleteUserAction, resetPasswordAction, toggleUserAction, updateUserAction, type UserFormInput } from "./users/actions";
+import type { ManagedServer } from "@/lib/server-management";
+import type { ManagedDatabase } from "@/lib/database-management";
+import type { DatabaseGrant, ServerGrant } from "@/lib/authorization";
+import { createUserAction, deleteUserAction, resetPasswordAction, saveUserResourceGrantsAction, toggleUserAction, updateUserAction, type UserFormInput } from "./users/actions";
 
 const { Title, Text } = Typography;
 const roleMeta: Record<UserRole, { label: string; color: string }> = {
   admin: { label: "管理员", color: "red" },
   operator: { label: "运维人员", color: "blue" },
-  user: { label: "普通用户", color: "default" },
 };
 
-export default function UserManagement({ users, currentUserId }: { users: AppUser[]; currentUserId: string }) {
+type Props = {
+  users: AppUser[];
+  currentUserId: string;
+  servers: ManagedServer[];
+  databases: ManagedDatabase[];
+  serverGrants: ServerGrant[];
+  databaseGrants: DatabaseGrant[];
+};
+
+export default function UserManagement({
+  users, currentUserId, servers, databases, serverGrants, databaseGrants,
+}: Props) {
   const { token } = theme.useToken();
   const { message } = App.useApp();
   const [keyword, setKeyword] = useState("");
@@ -22,6 +35,9 @@ export default function UserManagement({ users, currentUserId }: { users: AppUse
   const [editing, setEditing] = useState<AppUser | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [passwordUser, setPasswordUser] = useState<AppUser | null>(null);
+  const [permissionUser, setPermissionUser] = useState<AppUser | null>(null);
+  const [serverPermissions, setServerPermissions] = useState<Record<string, { command: boolean; ssh: boolean }>>({});
+  const [databasePermissions, setDatabasePermissions] = useState<Record<string, boolean>>({});
   const [pending, startTransition] = useTransition();
   const [form] = Form.useForm<UserFormInput & { confirmPassword?: string }>();
   const [passwordForm] = Form.useForm<{ password: string; confirmPassword: string }>();
@@ -34,7 +50,7 @@ export default function UserManagement({ users, currentUserId }: { users: AppUse
 
   function openCreate() {
     setEditing(null);
-    form.setFieldsValue({ username: "", displayName: "", email: "", role: "user", password: "", confirmPassword: "" });
+    form.setFieldsValue({ username: "", displayName: "", email: "", role: "operator", password: "", confirmPassword: "" });
     setModalOpen(true);
   }
 
@@ -44,6 +60,19 @@ export default function UserManagement({ users, currentUserId }: { users: AppUse
     setModalOpen(true);
   }
 
+  function openPermissions(user: AppUser) {
+    setPermissionUser(user);
+    setServerPermissions(Object.fromEntries(
+      serverGrants.filter((item) => item.userId === user.id).map((item) => [
+        item.serverId,
+        { command: item.canExecuteCommand, ssh: item.canOpenSsh },
+      ]),
+    ));
+    setDatabasePermissions(Object.fromEntries(
+      databaseGrants.filter((item) => item.userId === user.id).map((item) => [item.databaseId, item.canExecuteSql]),
+    ));
+  }
+
   const columns: TableColumnsType<AppUser> = [
     { title: "用户", dataIndex: "displayName", width: 210, render: (_, user) => <Flex align="center" gap={12}><Avatar src={user.avatarUrl} style={{ backgroundColor: token.colorPrimaryBg, color: token.colorPrimary }} icon={<UserOutlined />} /><div><Text strong>{user.displayName}{user.id === currentUserId && <Tag className="current-user-tag">当前</Tag>}</Text><div><Text type="secondary" className="user-subtext">@{user.username}</Text></div></div></Flex> },
     { title: "邮箱", dataIndex: "email", width: 220, render: (value: string | null) => value || "-" },
@@ -51,7 +80,7 @@ export default function UserManagement({ users, currentUserId }: { users: AppUse
     { title: "角色", dataIndex: "role", width: 110, render: (role: UserRole) => <Tag color={roleMeta[role].color}>{roleMeta[role].label}</Tag> },
     { title: "状态", dataIndex: "enabled", width: 105, render: (enabled: boolean, user) => <Switch checked={enabled} checkedChildren="启用" unCheckedChildren="禁用" disabled={user.id === currentUserId || pending} onChange={(checked) => startTransition(async () => { const result = await toggleUserAction(user.id, checked); if (result.ok) message.success(checked ? "用户已启用" : "用户已禁用"); else message.error(result.error); })} /> },
     { title: "最近登录", dataIndex: "lastLoginAt", width: 180, render: (value: string | null) => value ? new Date(value).toLocaleString("zh-CN") : "从未登录" },
-    { title: "操作", fixed: "right", width: 190, render: (_, user) => <Space size={2}><Button type="text" size="small" icon={<EditOutlined />} onClick={() => openEdit(user)}>编辑</Button><Button type="text" size="small" icon={<KeyOutlined />} disabled={user.id === currentUserId} onClick={() => { setPasswordUser(user); passwordForm.resetFields(); }}>重置密码</Button><Popconfirm title="确定删除这个用户吗？" description="用户的所有登录会话也会失效" okText="删除" cancelText="取消" disabled={user.id === currentUserId} onConfirm={() => startTransition(async () => { const result = await deleteUserAction(user.id); if (result.ok) message.success("用户已删除"); else message.error(result.error); })}><Button type="text" size="small" danger disabled={user.id === currentUserId} icon={<DeleteOutlined />} aria-label="删除用户" /></Popconfirm></Space> },
+    { title: "操作", fixed: "right", width: 280, render: (_, user) => <Space size={2}><Button type="text" size="small" icon={<EditOutlined />} onClick={() => openEdit(user)}>编辑</Button><Button type="text" size="small" icon={<SafetyCertificateOutlined />} disabled={user.role === "admin"} onClick={() => openPermissions(user)}>资源权限</Button><Button type="text" size="small" icon={<KeyOutlined />} disabled={user.id === currentUserId} onClick={() => { setPasswordUser(user); passwordForm.resetFields(); }}>重置密码</Button><Popconfirm title="确定删除这个用户吗？" description="用户的登录会话、API Key 和资源授权都会失效" okText="删除" cancelText="取消" disabled={user.id === currentUserId} onConfirm={() => startTransition(async () => { const result = await deleteUserAction(user.id); if (result.ok) message.success("用户已删除"); else message.error(result.error); })}><Button type="text" size="small" danger disabled={user.id === currentUserId} icon={<DeleteOutlined />} aria-label="删除用户" /></Popconfirm></Space> },
   ];
 
   return <>
@@ -81,6 +110,60 @@ export default function UserManagement({ users, currentUserId }: { users: AppUse
         <Form.Item name="password" label="新密码" rules={[{ required: true, min: 8, message: "密码至少需要 8 个字符" }]}><Input.Password autoComplete="new-password" /></Form.Item>
         <Form.Item name="confirmPassword" label="确认新密码" dependencies={["password"]} rules={[{ required: true, message: "请确认新密码" }, ({ getFieldValue }) => ({ validator(_, value) { return !value || value === getFieldValue("password") ? Promise.resolve() : Promise.reject(new Error("两次输入的密码不一致")); } })]}><Input.Password autoComplete="new-password" /></Form.Item>
       </Form>
+    </Modal>
+
+    <Modal
+      width={860}
+      title={`${permissionUser?.displayName || "运维人员"}的资源权限`}
+      open={Boolean(permissionUser)}
+      okText="保存权限"
+      cancelText="取消"
+      confirmLoading={pending}
+      onCancel={() => setPermissionUser(null)}
+      onOk={() => permissionUser && startTransition(async () => {
+        const result = await saveUserResourceGrantsAction({
+          userId: permissionUser.id,
+          serverGrants: Object.entries(serverPermissions).map(([serverId, value]) => ({
+            serverId,
+            canExecuteCommand: value.command,
+            canOpenSsh: value.ssh,
+          })),
+          databaseIds: Object.entries(databasePermissions).filter(([, enabled]) => enabled).map(([id]) => id),
+        });
+        if (!result.ok) { message.error(result.error); return; }
+        setPermissionUser(null);
+        message.success("资源权限已保存");
+      })}
+      destroyOnHidden
+    >
+      <Text type="secondary">未勾选的资源默认不可见。完整 SSH 可绕过命令策略，请按需单独授权。</Text>
+      <Title level={5}>服务器</Title>
+      <Table
+        size="small"
+        rowKey="id"
+        pagination={false}
+        scroll={{ y: 220 }}
+        dataSource={servers}
+        columns={[
+          { title: "服务器", render: (_, item) => `${item.name}（${item.environment}）` },
+          { title: "受控命令", width: 120, render: (_, item) => <Checkbox checked={serverPermissions[item.id]?.command || false} onChange={(event) => setServerPermissions((current) => ({ ...current, [item.id]: { command: event.target.checked, ssh: current[item.id]?.ssh || false } }))} /> },
+          { title: "完整 SSH", width: 120, render: (_, item) => <Checkbox checked={serverPermissions[item.id]?.ssh || false} onChange={(event) => setServerPermissions((current) => ({ ...current, [item.id]: { command: current[item.id]?.command || false, ssh: event.target.checked } }))} /> },
+        ]}
+        locale={{ emptyText: "暂无服务器" }}
+      />
+      <Title level={5}>数据库</Title>
+      <Table
+        size="small"
+        rowKey="id"
+        pagination={false}
+        scroll={{ y: 220 }}
+        dataSource={databases}
+        columns={[
+          { title: "数据库", render: (_, item) => `${item.name} / ${item.databaseName}（${item.environment}）` },
+          { title: "SQL 工作台", width: 140, render: (_, item) => <Checkbox checked={databasePermissions[item.id] || false} onChange={(event) => setDatabasePermissions((current) => ({ ...current, [item.id]: event.target.checked }))} /> },
+        ]}
+        locale={{ emptyText: "暂无数据库" }}
+      />
     </Modal>
   </>;
 }

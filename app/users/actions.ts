@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { requireAdmin, type UserRole } from "@/lib/auth";
 import { createUser, removeUser, resetUserPassword, setUserEnabled, updateUser } from "@/lib/user-management";
+import { replaceUserResourceGrants } from "@/lib/authorization";
 
 export type UserFormInput = {
   username: string;
@@ -19,7 +20,7 @@ function validateInput(input: UserFormInput, requirePassword: boolean) {
   if (!/^[A-Za-z0-9._-]{3,64}$/.test(username)) throw new Error("用户名需要为 3–64 位字母、数字、点、下划线或短横线");
   if (!displayName || displayName.length > 100) throw new Error("姓名不能为空且不能超过 100 个字符");
   if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new Error("邮箱格式不正确");
-  if (!(["admin", "operator", "user"] as string[]).includes(input.role)) throw new Error("用户角色无效");
+  if (!(["admin", "operator"] as string[]).includes(input.role)) throw new Error("用户角色无效");
   if (requirePassword && !input.password) throw new Error("请设置初始密码");
   return { username, displayName, email, role: input.role, password: input.password };
 }
@@ -76,4 +77,21 @@ export async function deleteUserAction(id: string) {
     revalidatePath("/");
     return { ok: true } as const;
   } catch (error) { return { ok: false, error: errorResult(error, "用户删除失败") } as const; }
+}
+
+export async function saveUserResourceGrantsAction(input: {
+  userId: string;
+  serverGrants: Array<{ serverId: string; canExecuteCommand: boolean; canOpenSsh: boolean }>;
+  databaseIds: string[];
+}) {
+  try {
+    const current = await requireAdmin();
+    await replaceUserResourceGrants({ ...input, grantedBy: current.id });
+    revalidatePath("/");
+    revalidatePath("/servers");
+    revalidatePath("/databases");
+    return { ok: true } as const;
+  } catch (error) {
+    return { ok: false, error: errorResult(error, "资源权限保存失败") } as const;
+  }
 }

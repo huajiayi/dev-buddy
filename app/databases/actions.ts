@@ -5,7 +5,7 @@ import {
   createManagedDatabase, removeManagedDatabase, setManagedDatabaseEnabled,
   testManagedDatabase, updateManagedDatabase, type ManagedDatabaseInput,
 } from "@/lib/database-management";
-import { requireUser } from "@/lib/auth";
+import { requireAdmin } from "@/lib/auth";
 
 export type DatabaseInput = ManagedDatabaseInput;
 
@@ -26,7 +26,7 @@ function validate(input: DatabaseInput, creating: boolean) {
 
 export async function createDatabase(input: DatabaseInput) {
   try {
-    await requireUser();
+    await requireAdmin();
     const checked = validate(input, true);
     if ("error" in checked) return { ok: false, error: checked.error };
     await createManagedDatabase(checked.value);
@@ -37,7 +37,7 @@ export async function createDatabase(input: DatabaseInput) {
 
 export async function editDatabase(id: string, input: DatabaseInput) {
   try {
-    await requireUser();
+    await requireAdmin();
     const checked = validate(input, false);
     if ("error" in checked) return { ok: false, error: checked.error };
     await updateManagedDatabase(id, checked.value);
@@ -47,16 +47,16 @@ export async function editDatabase(id: string, input: DatabaseInput) {
 }
 
 export async function deleteDatabase(id: string) {
-  try { await requireUser(); await removeManagedDatabase(id); revalidatePath("/databases"); return { ok: true }; }
+  try { await requireAdmin(); await removeManagedDatabase(id); revalidatePath("/databases"); return { ok: true }; }
   catch (error) { return { ok: false, error: error instanceof Error ? error.message : "数据库删除失败" }; }
 }
 
 export async function toggleDatabase(id: string, enabled: boolean) {
-  try { await requireUser(); await setManagedDatabaseEnabled(id, enabled); revalidatePath("/databases"); return { ok: true }; }
+  try { await requireAdmin(); await setManagedDatabaseEnabled(id, enabled); revalidatePath("/databases"); return { ok: true }; }
   catch (error) { return { ok: false, error: error instanceof Error ? error.message : "状态更新失败" }; }
 }
 
 export async function testDatabaseConnection(id: string) {
-  try { await requireUser(); await testManagedDatabase(id); return { ok: true }; }
+  try { await requireAdmin(); await testManagedDatabase(id); return { ok: true }; }
   catch (error) { return { ok: false, error: error instanceof Error ? error.message : "连接测试失败" }; }
 }

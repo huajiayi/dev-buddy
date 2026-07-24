@@ -41,6 +41,7 @@ export type DatabaseQueryExecution = {
   databaseId: string | null;
   databaseName: string;
   apiKeyName: string | null;
+  actorUserName: string | null;
   sql: string;
   reason: string;
   status: string;
@@ -524,7 +525,7 @@ export async function checkDatabaseQueryRateLimit(apiKeyId: string, limit = 30) 
 
 export async function executeDatabaseQuery(input: {
   databaseId: string; apiKeyId?: string | null; sql: string; reason: string;
-  timeoutSeconds?: number; remoteAddress?: string; source?: string;
+  actorUserId?: string | null; timeoutSeconds?: number; remoteAddress?: string; source?: string;
 }) {
   await ensureSchema();
   const row = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(input.databaseId)
@@ -538,10 +539,10 @@ export async function executeDatabaseQuery(input: {
     const message = "数据库资产不存在";
     await getPool().query(
       `INSERT INTO database_query_executions
-       (id,database_id,api_key_id,database_name,sql,reason,status,error,remote_address,
+       (id,database_id,api_key_id,actor_user_id,database_name,sql,reason,status,error,remote_address,
         policy_decision,policy_reason,statement_type,source,finished_at)
-       VALUES ($1,NULL,$2,$3,$4,$5,'rejected',$6,$7,'deny',$6,'unknown',$8,NOW())`,
-      [executionId, input.apiKeyId || null, "未知数据库", input.sql.slice(0, 20 * 1024), reason, message, remoteAddress, input.source || "api"],
+       VALUES ($1,NULL,$2,$3,$4,$5,$6,'rejected',$7,$8,'deny',$7,'unknown',$9,NOW())`,
+      [executionId, input.apiKeyId || null, input.actorUserId || null, "未知数据库", input.sql.slice(0, 20 * 1024), reason, message, remoteAddress, input.source || "api"],
     );
     return { executionId, status: "rejected" as const, columns: [], rows: [], rowCount: 0, truncated: false, durationMs: Date.now() - startedAt, error: message };
   }
@@ -554,10 +555,10 @@ export async function executeDatabaseQuery(input: {
   ) => {
     await getPool().query(
       `INSERT INTO database_query_executions
-       (id,database_id,api_key_id,database_name,sql,reason,status,error,remote_address,
+       (id,database_id,api_key_id,actor_user_id,database_name,sql,reason,status,error,remote_address,
         policy_decision,policy_reason,statement_type,source,finished_at)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)`,
-      [executionId, row.id, input.apiKeyId || null, row.name, input.sql.slice(0, 20 * 1024), reason,
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)`,
+      [executionId, row.id, input.apiKeyId || null, input.actorUserId || null, row.name, input.sql.slice(0, 20 * 1024), reason,
         status, error || null, remoteAddress, policyDecision, policyReason, statementType,
         input.source || "api", status === "running" ? null : new Date()],
     );
@@ -618,20 +619,21 @@ export async function executeDatabaseQuery(input: {
 export async function listDatabaseQueryExecutions(limit = 100): Promise<DatabaseQueryExecution[]> {
   await ensureSchema();
   const result = await getPool().query<{
-    id: string; database_id: string | null; database_name: string; api_key_name: string | null;
+    id: string; database_id: string | null; database_name: string; api_key_name: string | null; actor_user_name: string | null;
     sql: string; reason: string; status: string; columns: string[]; row_count: number;
     truncated: boolean; duration_ms: number | null; error: string | null;
     statement_type: string; policy_decision: "allow" | "deny"; policy_reason: string;
     remote_address: string | null; source: string; created_at: Date;
   }>(
-    `SELECT e.*, k.name AS api_key_name FROM database_query_executions e
+    `SELECT e.*, k.name AS api_key_name, u.display_name AS actor_user_name FROM database_query_executions e
      LEFT JOIN project_api_keys k ON k.id=e.api_key_id
+     LEFT JOIN app_users u ON u.id=e.actor_user_id
      ORDER BY e.created_at DESC LIMIT $1`,
     [Math.max(1, Math.min(limit, 500))],
   );
   return result.rows.map((row) => ({
     id: row.id, databaseId: row.database_id, databaseName: row.database_name,
-    apiKeyName: row.api_key_name, sql: row.sql, reason: row.reason, status: row.status,
+    apiKeyName: row.api_key_name, actorUserName: row.actor_user_name, sql: row.sql, reason: row.reason, status: row.status,
     statementType: row.statement_type, policyDecision: row.policy_decision, policyReason: row.policy_reason,
     columns: row.columns, rowCount: row.row_count, truncated: row.truncated,
     durationMs: row.duration_ms, error: row.error, remoteAddress: row.remote_address, source: row.source,

@@ -8,7 +8,7 @@ import { ensureSchema, getPool } from "./db";
 export const SESSION_COOKIE = "dev_buddy_session";
 const SESSION_SECONDS = 7 * 24 * 60 * 60;
 
-export type UserRole = "admin" | "operator" | "user";
+export type UserRole = "admin" | "operator";
 
 export type AppUser = {
   id: string;
@@ -266,7 +266,7 @@ export async function findOrCreateLarkUser(profile: LarkProfile) {
   const result = await getPool().query<UserRow>(
     `INSERT INTO app_users
      (id,username,display_name,email,role,lark_open_id,lark_union_id,lark_tenant_key,avatar_url,last_login_at)
-     VALUES ($1,$2,$3,$4,'user',$5,$6,$7,$8,NOW()) RETURNING *`,
+     VALUES ($1,$2,$3,$4,'operator',$5,$6,$7,$8,NOW()) RETURNING *`,
     [randomUUID(), username, profile.name || username, profile.email, profile.openId, profile.unionId, profile.tenantKey, profile.avatarUrl],
   );
   return toUser(result.rows[0]);

@@ -7,11 +7,12 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import type { ManagedDatabase } from "@/lib/database-management";
 import type { ManagedServer } from "@/lib/server-management";
+import type { DatabaseGrant } from "@/lib/authorization";
 import { createDatabase, deleteDatabase, editDatabase, testDatabaseConnection, toggleDatabase, type DatabaseInput } from "./actions";
 
 const { Title, Text } = Typography;
 
-export default function DatabasesView({ databases, servers }: { databases: ManagedDatabase[]; servers: ManagedServer[] }) {
+export default function DatabasesView({ databases, servers, isAdmin, grants }: { databases: ManagedDatabase[]; servers: ManagedServer[]; isAdmin: boolean; grants: DatabaseGrant[] }) {
   const { message } = App.useApp();
   const router = useRouter();
   const [form] = Form.useForm<DatabaseInput>();
@@ -21,6 +22,7 @@ export default function DatabasesView({ databases, servers }: { databases: Manag
   const [caName, setCaName] = useState<string>();
   const [pending, startTransition] = useTransition();
   const mode = Form.useWatch("connectionMode", form);
+  const grantedIds = new Set(grants.filter((item) => item.canExecuteSql).map((item) => item.databaseId));
 
   const close = () => { setOpen(false); setEditing(undefined); setCaName(undefined); form.resetFields(); };
   const create = () => {
@@ -51,13 +53,13 @@ export default function DatabasesView({ databases, servers }: { databases: Manag
     { title: "连接方式", width: 160, render: (_, item) => item.connectionMode === "direct" ? "直连" : `SSH：${item.sshServerName || "未知"}` },
     { title: "TLS", dataIndex: "tlsMode", width: 110 },
     { title: "环境", dataIndex: "environment", width: 100 },
-    { title: "启用", width: 80, render: (_, item) => <Switch checked={item.enabled} onChange={(enabled) => startTransition(async () => { const result = await toggleDatabase(item.id, enabled); if (result.ok) message.success("状态已更新"); else message.error(result.error); })} /> },
-    { title: "操作", width: 360, render: (_, item) => <Space><Button type="link" icon={<CodeOutlined />} disabled={!item.enabled} onClick={() => router.push(`/databases/${item.id}/workbench`)}>打开工作台</Button><Button type="link" icon={<ApiOutlined />} loading={testingId === item.id} onClick={() => { setTestingId(item.id); startTransition(async () => { const result = await testDatabaseConnection(item.id); if (result.ok) message.success("数据库连接正常"); else message.error(result.error); setTestingId(undefined); }); }}>测试</Button><Button type="text" icon={<EditOutlined />} onClick={() => edit(item)}>编辑</Button><Popconfirm title="删除资产后审计记录仍会保留，确认删除？" onConfirm={() => startTransition(async () => { const result = await deleteDatabase(item.id); if (result.ok) message.success("已删除"); else message.error(result.error); })}><Button danger type="text" icon={<DeleteOutlined />} /></Popconfirm></Space> },
+    { title: "启用", width: 90, render: (_, item) => isAdmin ? <Switch checked={item.enabled} onChange={(enabled) => startTransition(async () => { const result = await toggleDatabase(item.id, enabled); if (result.ok) message.success("状态已更新"); else message.error(result.error); })} /> : <Tag color={item.enabled ? "success" : "default"}>{item.enabled ? "已启用" : "已禁用"}</Tag> },
+    { title: "操作", width: isAdmin ? 360 : 150, render: (_, item) => <Space>{(isAdmin || grantedIds.has(item.id)) && <Button type="link" icon={<CodeOutlined />} disabled={!item.enabled} onClick={() => router.push(`/databases/${item.id}/workbench`)}>打开工作台</Button>}{isAdmin && <><Button type="link" icon={<ApiOutlined />} loading={testingId === item.id} onClick={() => { setTestingId(item.id); startTransition(async () => { const result = await testDatabaseConnection(item.id); if (result.ok) message.success("数据库连接正常"); else message.error(result.error); setTestingId(undefined); }); }}>测试</Button><Button type="text" icon={<EditOutlined />} onClick={() => edit(item)}>编辑</Button><Popconfirm title="删除资产后审计记录仍会保留，确认删除？" onConfirm={() => startTransition(async () => { const result = await deleteDatabase(item.id); if (result.ok) message.success("已删除"); else message.error(result.error); })}><Button danger type="text" icon={<DeleteOutlined />} /></Popconfirm></>}</Space> },
   ];
 
   return <>
     <Breadcrumb items={[{ title: "首页" }, { title: "数据库管理" }, { title: "数据库列表" }]} />
-    <div className="page-heading"><div><Title level={2}>关系型数据库</Title><Text type="secondary">管理 PostgreSQL、MySQL/MariaDB 资产；SQL 操作由执行策略控制</Text></div><Button type="primary" icon={<PlusOutlined />} onClick={create}>添加数据库</Button></div>
+    <div className="page-heading"><div><Title level={2}>关系型数据库</Title><Text type="secondary">{isAdmin ? "管理 PostgreSQL、MySQL/MariaDB 资产；SQL 操作由执行策略控制" : "仅显示管理员已授权给你的数据库"}</Text></div>{isAdmin && <Button type="primary" icon={<PlusOutlined />} onClick={create}>添加数据库</Button>}</div>
     <Card className="detail-card"><Table rowKey="id" columns={columns} dataSource={databases} scroll={{ x: 1360 }} /></Card>
     <Modal width={720} title={editing ? "编辑数据库" : "添加数据库"} open={open} onCancel={close} onOk={() => form.submit()} confirmLoading={pending} destroyOnHidden>
       <Form form={form} layout="vertical" onFinish={submit}>

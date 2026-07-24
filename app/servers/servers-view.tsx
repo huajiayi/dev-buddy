@@ -7,12 +7,13 @@ import type { UploadProps } from "antd";
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import type { ManagedServer } from "@/lib/server-management";
+import type { ServerGrant } from "@/lib/authorization";
 import { createServer, deleteServer, editServer, testServerConnection, toggleServer } from "./actions";
 import type { ServerInput } from "./actions";
 
 const { Title, Text } = Typography;
 
-export default function ServersView({ servers }: { servers: ManagedServer[] }) {
+export default function ServersView({ servers, isAdmin, grants }: { servers: ManagedServer[]; isAdmin: boolean; grants: ServerGrant[] }) {
   const { message } = App.useApp();
   const router = useRouter();
   const [form] = Form.useForm<ServerInput>();
@@ -22,6 +23,7 @@ export default function ServersView({ servers }: { servers: ManagedServer[] }) {
   const [uploadedKeyName, setUploadedKeyName] = useState<string>();
   const [testingId, setTestingId] = useState<string>();
   const [pending, startTransition] = useTransition();
+  const grantMap = new Map(grants.map((item) => [item.serverId, item]));
 
   const closeModal = () => {
     setOpen(false);
@@ -79,13 +81,22 @@ export default function ServersView({ servers }: { servers: ManagedServer[] }) {
     { title: "连接地址", width: 190, render: (_, item) => <Text code>{item.username}@{item.host}:{item.port}</Text> },
     { title: "认证", dataIndex: "authType", width: 110, render: (value: ManagedServer["authType"]) => value === "privateKey" ? "SSH 私钥" : "密码" },
     { title: "环境", dataIndex: "environment", width: 110, render: (value: string) => <Tag color={value === "production" ? "red" : value === "staging" ? "orange" : "blue"}>{value}</Tag> },
-    { title: "启用", dataIndex: "enabled", width: 90, render: (value: boolean, item) => <Switch checked={value} onChange={(checked) => startTransition(async () => { const result = await toggleServer(item.id, checked); if (result.ok) message.success("状态已更新"); else message.error(result.error); })} /> },
-    { title: "操作", width: 460, render: (_, item) => <Space><Button type="link" icon={<CodeOutlined />} disabled={!item.enabled} onClick={() => router.push(`/servers/${item.id}/terminal`)}>受控终端</Button><Button type="link" icon={<DesktopOutlined />} disabled={!item.enabled} onClick={() => router.push(`/servers/${item.id}/ssh-terminal`)}>SSH 终端</Button><Button type="link" icon={<ApiOutlined />} loading={testingId === item.id} onClick={() => { setTestingId(item.id); startTransition(async () => { const result = await testServerConnection(item.id); if (result.ok) message.success("SSH 连接正常"); else message.error(result.error || "连接测试失败"); setTestingId(undefined); }); }}>测试连接</Button><Button type="text" icon={<EditOutlined />} onClick={() => openEditModal(item)}>编辑</Button><Popconfirm title="确认删除这台服务器？" onConfirm={() => startTransition(async () => { const result = await deleteServer(item.id); if (result.ok) message.success("已删除"); else message.error(result.error); })}><Button danger type="text" icon={<DeleteOutlined />} aria-label={`删除 ${item.name}`} /></Popconfirm></Space> },
+    { title: "启用", dataIndex: "enabled", width: 90, render: (value: boolean, item) => isAdmin ? <Switch checked={value} onChange={(checked) => startTransition(async () => { const result = await toggleServer(item.id, checked); if (result.ok) message.success("状态已更新"); else message.error(result.error); })} /> : <Tag color={value ? "success" : "default"}>{value ? "已启用" : "已禁用"}</Tag> },
+    { title: "操作", width: isAdmin ? 460 : 230, render: (_, item) => {
+      const grant = grantMap.get(item.id);
+      const canCommand = isAdmin || Boolean(grant?.canExecuteCommand);
+      const canSsh = isAdmin || Boolean(grant?.canOpenSsh);
+      return <Space>
+        {canCommand && <Button type="link" icon={<CodeOutlined />} disabled={!item.enabled} onClick={() => router.push(`/servers/${item.id}/terminal`)}>受控终端</Button>}
+        {canSsh && <Button type="link" icon={<DesktopOutlined />} disabled={!item.enabled} onClick={() => router.push(`/servers/${item.id}/ssh-terminal`)}>SSH 终端</Button>}
+        {isAdmin && <><Button type="link" icon={<ApiOutlined />} loading={testingId === item.id} onClick={() => { setTestingId(item.id); startTransition(async () => { const result = await testServerConnection(item.id); if (result.ok) message.success("SSH 连接正常"); else message.error(result.error || "连接测试失败"); setTestingId(undefined); }); }}>测试连接</Button><Button type="text" icon={<EditOutlined />} onClick={() => openEditModal(item)}>编辑</Button><Popconfirm title="确认删除这台服务器？" onConfirm={() => startTransition(async () => { const result = await deleteServer(item.id); if (result.ok) message.success("已删除"); else message.error(result.error); })}><Button danger type="text" icon={<DeleteOutlined />} aria-label={`删除 ${item.name}`} /></Popconfirm></>}
+      </Space>;
+    } },
   ];
 
   return <>
     <Breadcrumb items={[{ title: "首页" }, { title: "服务器运维" }, { title: "服务器列表" }]} />
-    <div className="page-heading"><div><Title level={2}>服务器列表</Title><Text type="secondary">通过项目 API、受控命令终端或完整 SSH 交互终端管理 Linux 服务器</Text></div><Button type="primary" icon={<PlusOutlined />} onClick={openCreateModal}>添加服务器</Button></div>
+    <div className="page-heading"><div><Title level={2}>服务器列表</Title><Text type="secondary">{isAdmin ? "管理 Linux 服务器及其连接方式" : "仅显示管理员已授权给你的服务器"}</Text></div>{isAdmin && <Button type="primary" icon={<PlusOutlined />} onClick={openCreateModal}>添加服务器</Button>}</div>
     <Card className="detail-card"><Table rowKey="id" columns={columns} dataSource={servers} scroll={{ x: 1290 }} pagination={{ pageSize: 10 }} locale={{ emptyText: "暂无服务器，请先添加 SSH 连接信息" }} /></Card>
     <Modal title={editingServer ? "编辑 Linux 服务器" : "添加 Linux 服务器"} open={open} onCancel={closeModal} onOk={() => form.submit()} okText={editingServer ? "保存" : "添加"} confirmLoading={pending} destroyOnHidden>
       <Form form={form} layout="vertical" initialValues={{ port: 22, authType: "privateKey", environment: "production" }} onFinish={submit} className="server-form">

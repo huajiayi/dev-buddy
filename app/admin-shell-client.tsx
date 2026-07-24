@@ -17,7 +17,7 @@ import { logoutAction } from "./login/actions";
 
 const { Header, Sider, Content } = Layout;
 const { Text } = Typography;
-const roleLabels: Record<UserRole, string> = { admin: "管理员", operator: "运维人员", user: "普通用户" };
+const roleLabels: Record<UserRole, string> = { admin: "管理员", operator: "运维人员" };
 
 function Shell({ children, user }: { children: ReactNode; user: AppUser }) {
   const { token } = theme.useToken();
@@ -42,20 +42,24 @@ function Shell({ children, user }: { children: ReactNode; user: AppUser }) {
       key: "server-operations", icon: <DesktopOutlined />, label: "服务器运维",
       children: [
         { key: "/servers", icon: <CloudServerOutlined />, label: "服务器列表" },
-        ...(user.role === "admin" ? [{ key: "/command-policies", icon: <CodeOutlined />, label: "命令策略" }] : []),
-        { key: "/executions", icon: <FileSearchOutlined />, label: "执行审计" },
-        { key: "/terminal-sessions", icon: <HistoryOutlined />, label: "SSH 会话审计" },
+        ...(user.role === "admin" ? [
+          { key: "/command-policies", icon: <CodeOutlined />, label: "命令策略" },
+          { key: "/executions", icon: <FileSearchOutlined />, label: "执行审计" },
+          { key: "/terminal-sessions", icon: <HistoryOutlined />, label: "SSH 会话审计" },
+        ] : []),
       ],
     },
     {
       key: "database-management", icon: <DatabaseOutlined />, label: "数据库管理",
       children: [
         { key: "/databases", icon: <DatabaseOutlined />, label: "数据库列表" },
-        ...(user.role === "admin" ? [{ key: "/database-policies", icon: <CodeOutlined />, label: "SQL 执行策略" }] : []),
-        { key: "/database-executions", icon: <FileSearchOutlined />, label: "SQL 执行审计" },
+        ...(user.role === "admin" ? [
+          { key: "/database-policies", icon: <CodeOutlined />, label: "SQL 执行策略" },
+          { key: "/database-executions", icon: <FileSearchOutlined />, label: "SQL 执行审计" },
+        ] : []),
       ],
     },
-    {
+    ...(user.role === "admin" ? [{
       key: "aliyun-management", icon: <CloudServerOutlined />, label: "阿里云管理",
       children: [
         { key: "/aliyun", icon: <KeyOutlined />, label: "账号管理" },
@@ -63,11 +67,11 @@ function Shell({ children, user }: { children: ReactNode; user: AppUser }) {
         { key: "/aliyun/costs", icon: <LineChartOutlined />, label: "费用分析" },
         { key: "/aliyun/risks", icon: <SafetyCertificateOutlined />, label: "风险提醒" },
       ],
-    },
-    ...(user.role === "admin" ? [{
+    }] : []),
+    {
       key: "system-management", icon: <SettingOutlined />, label: "系统管理",
       children: [{ key: "/api-keys", icon: <KeyOutlined />, label: "API Key" }],
-    }] : []),
+    },
   ];
 
   return <Layout className="admin-shell">

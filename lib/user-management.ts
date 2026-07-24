@@ -44,6 +44,12 @@ export async function updateUser(id: string, input: Omit<UserInput, "password">)
     [id, input.username, input.displayName, input.email || null, input.role],
   );
   if (!result.rowCount) throw new Error("用户不存在");
+  if (input.role === "admin") {
+    await Promise.all([
+      getPool().query("DELETE FROM user_server_grants WHERE user_id=$1", [id]),
+      getPool().query("DELETE FROM user_database_grants WHERE user_id=$1", [id]),
+    ]);
+  }
 }
 
 export async function setUserEnabled(id: string, enabled: boolean, currentUserId: string) {
@@ -66,7 +72,7 @@ export async function resetUserPassword(id: string, password: string) {
 export async function removeUser(id: string, currentUserId: string) {
   await ensureSchema();
   if (id === currentUserId) throw new Error("不能删除当前登录账号");
-  await protectLastAdmin(id, "user", false);
+  await protectLastAdmin(id, "operator", false);
   const result = await getPool().query("DELETE FROM app_users WHERE id=$1", [id]);
   if (!result.rowCount) throw new Error("用户不存在");
 }

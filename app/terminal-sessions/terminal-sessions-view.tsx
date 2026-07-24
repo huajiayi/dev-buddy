@@ -36,6 +36,7 @@ export default function TerminalSessionsView({ sessions }: { sessions: SshTermin
         value === "connected" ? "processing" : value === "failed" ? "error" : "default"
       }>{value}</Tag>,
     },
+    { title: "操作用户", dataIndex: "actorUserName", width: 140, render: (value) => value || "历史记录" },
     { title: "来源 IP", dataIndex: "remoteAddress", width: 160, render: (value) => value || "-" },
     {
       title: "流量",

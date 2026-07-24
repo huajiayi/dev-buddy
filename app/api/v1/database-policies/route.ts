@@ -17,6 +17,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   const apiKey = await authenticateProjectApiKey(token(request));
   if (!apiKey) return NextResponse.json({ error: "invalid_api_key", message: "API Key 无效、已禁用或已过期" }, { status: 401 });
+  if (apiKey.ownerRole !== "admin") return NextResponse.json({ error: "forbidden", message: "只有管理员可以新增 SQL 策略" }, { status: 403 });
   let body: unknown;
   try { body = await request.json(); } catch { return NextResponse.json({ error: "invalid_json" }, { status: 400 }); }
   const value = body as Record<string, unknown>;

@@ -268,6 +268,56 @@ export async function ensureSchema() {
         CREATE INDEX IF NOT EXISTS idx_auth_sessions_expires_at
           ON auth_sessions(expires_at);
       `))
+      .then(() => getPool().query(`
+        UPDATE app_users SET role='operator' WHERE role='user';
+        ALTER TABLE app_users ALTER COLUMN role SET DEFAULT 'operator';
+        ALTER TABLE app_users DROP CONSTRAINT IF EXISTS app_users_role_check;
+        ALTER TABLE app_users
+          ADD CONSTRAINT app_users_role_check CHECK (role IN ('admin', 'operator'));
+
+        ALTER TABLE project_api_keys
+          ADD COLUMN IF NOT EXISTS owner_user_id UUID REFERENCES app_users(id) ON DELETE CASCADE;
+        UPDATE project_api_keys k
+          SET owner_user_id = (
+            SELECT id FROM app_users
+            WHERE role='admin' AND enabled=TRUE
+            ORDER BY created_at ASC
+            LIMIT 1
+          )
+          WHERE owner_user_id IS NULL;
+        CREATE INDEX IF NOT EXISTS idx_project_api_keys_owner_user_id
+          ON project_api_keys(owner_user_id);
+
+        CREATE TABLE IF NOT EXISTS user_server_grants (
+          user_id UUID NOT NULL REFERENCES app_users(id) ON DELETE CASCADE,
+          server_id UUID NOT NULL REFERENCES managed_servers(id) ON DELETE CASCADE,
+          can_execute_command BOOLEAN NOT NULL DEFAULT FALSE,
+          can_open_ssh BOOLEAN NOT NULL DEFAULT FALSE,
+          granted_by UUID REFERENCES app_users(id) ON DELETE SET NULL,
+          created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+          updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+          PRIMARY KEY (user_id, server_id),
+          CHECK (can_execute_command OR can_open_ssh)
+        );
+
+        CREATE TABLE IF NOT EXISTS user_database_grants (
+          user_id UUID NOT NULL REFERENCES app_users(id) ON DELETE CASCADE,
+          database_id UUID NOT NULL REFERENCES managed_databases(id) ON DELETE CASCADE,
+          can_execute_sql BOOLEAN NOT NULL DEFAULT TRUE,
+          granted_by UUID REFERENCES app_users(id) ON DELETE SET NULL,
+          created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+          updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+          PRIMARY KEY (user_id, database_id),
+          CHECK (can_execute_sql)
+        );
+
+        ALTER TABLE command_executions
+          ADD COLUMN IF NOT EXISTS actor_user_id UUID REFERENCES app_users(id) ON DELETE SET NULL;
+        ALTER TABLE database_query_executions
+          ADD COLUMN IF NOT EXISTS actor_user_id UUID REFERENCES app_users(id) ON DELETE SET NULL;
+        ALTER TABLE ssh_terminal_sessions
+          ADD COLUMN IF NOT EXISTS actor_user_id UUID REFERENCES app_users(id) ON DELETE SET NULL;
+      `))
       .then(() => undefined)
       .catch((error) => {
         schemaReady = null;
