@@ -3,6 +3,7 @@ import "server-only";
 import { randomUUID } from "node:crypto";
 import { ensureSchema, getPool } from "./db";
 import { hashPassword, type UserRole } from "./auth";
+import { getDefaultUserPassword } from "./system-settings";
 
 export type UserInput = {
   username: string;
@@ -24,8 +25,9 @@ async function protectLastAdmin(userId: string, nextRole?: UserRole, nextEnabled
 
 export async function createUser(input: UserInput) {
   await ensureSchema();
-  if (!input.password) throw new Error("创建本地账号时必须设置初始密码");
-  const passwordHash = await hashPassword(input.password);
+  const password = input.password || await getDefaultUserPassword();
+  if (!password) throw new Error("请填写初始密码，或先在系统设置中配置默认用户密码");
+  const passwordHash = await hashPassword(password);
   const id = randomUUID();
   await getPool().query(
     `INSERT INTO app_users (id,username,display_name,email,password_hash,role)

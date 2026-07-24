@@ -23,10 +23,11 @@ type Props = {
   databases: ManagedDatabase[];
   serverGrants: ServerGrant[];
   databaseGrants: DatabaseGrant[];
+  hasDefaultUserPassword: boolean;
 };
 
 export default function UserManagement({
-  users, currentUserId, servers, databases, serverGrants, databaseGrants,
+  users, currentUserId, servers, databases, serverGrants, databaseGrants, hasDefaultUserPassword,
 }: Props) {
   const { token } = theme.useToken();
   const { message } = App.useApp();
@@ -99,7 +100,32 @@ export default function UserManagement({
         <Form.Item name="username" label="用户名" rules={[{ required: true, message: "请输入用户名" }, { pattern: /^[A-Za-z0-9._-]{3,64}$/, message: "请输入 3–64 位有效用户名" }]}><Input autoComplete="off" /></Form.Item>
         <Form.Item name="email" label="邮箱" rules={[{ type: "email", message: "请输入有效邮箱" }]}><Input autoComplete="off" /></Form.Item>
         <Form.Item name="role" label="角色" rules={[{ required: true }]}><Select options={Object.entries(roleMeta).map(([value, item]) => ({ value, label: item.label }))} /></Form.Item>
-        {!editing && <><Form.Item name="password" label="初始密码" rules={[{ required: true, min: 8, message: "密码至少需要 8 个字符" }]}><Input.Password autoComplete="new-password" /></Form.Item><Form.Item name="confirmPassword" label="确认密码" dependencies={["password"]} rules={[{ required: true, message: "请确认密码" }, ({ getFieldValue }) => ({ validator(_, value) { return !value || value === getFieldValue("password") ? Promise.resolve() : Promise.reject(new Error("两次输入的密码不一致")); } })]}><Input.Password autoComplete="new-password" /></Form.Item></>}
+        {!editing && <><Form.Item
+          name="password"
+          label="初始密码"
+          extra={hasDefaultUserPassword ? "留空将使用系统设置中的默认密码" : "尚未配置默认密码，创建时必须填写"}
+          rules={[{
+            validator(_, value?: string) {
+              if (!value && hasDefaultUserPassword) return Promise.resolve();
+              if (!value) return Promise.reject(new Error("请输入初始密码，或先配置系统默认密码"));
+              return value.length >= 8 && value.length <= 128
+                ? Promise.resolve()
+                : Promise.reject(new Error("密码需要为 8–128 个字符"));
+            },
+          }]}
+        ><Input.Password autoComplete="new-password" /></Form.Item><Form.Item
+          name="confirmPassword"
+          label="确认密码"
+          dependencies={["password"]}
+          rules={[({ getFieldValue }) => ({
+            validator(_, value) {
+              const password = getFieldValue("password");
+              if (!password && !value) return Promise.resolve();
+              if (!value) return Promise.reject(new Error("请确认密码"));
+              return value === password ? Promise.resolve() : Promise.reject(new Error("两次输入的密码不一致"));
+            },
+          })]}
+        ><Input.Password autoComplete="new-password" /></Form.Item></>}
       </Form>
     </Modal>
 

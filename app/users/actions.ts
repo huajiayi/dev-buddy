@@ -13,7 +13,7 @@ export type UserFormInput = {
   password?: string;
 };
 
-function validateInput(input: UserFormInput, requirePassword: boolean) {
+function validateInput(input: UserFormInput) {
   const username = input.username.trim();
   const displayName = input.displayName.trim();
   const email = input.email?.trim() || undefined;
@@ -21,7 +21,6 @@ function validateInput(input: UserFormInput, requirePassword: boolean) {
   if (!displayName || displayName.length > 100) throw new Error("姓名不能为空且不能超过 100 个字符");
   if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new Error("邮箱格式不正确");
   if (!(["admin", "operator"] as string[]).includes(input.role)) throw new Error("用户角色无效");
-  if (requirePassword && !input.password) throw new Error("请设置初始密码");
   return { username, displayName, email, role: input.role, password: input.password };
 }
 
@@ -35,7 +34,7 @@ function errorResult(error: unknown, fallback: string) {
 export async function createUserAction(input: UserFormInput) {
   try {
     await requireAdmin();
-    const id = await createUser(validateInput(input, true));
+    const id = await createUser(validateInput(input));
     revalidatePath("/");
     return { ok: true, id } as const;
   } catch (error) { return { ok: false, error: errorResult(error, "用户创建失败") } as const; }
@@ -44,7 +43,7 @@ export async function createUserAction(input: UserFormInput) {
 export async function updateUserAction(id: string, input: UserFormInput) {
   try {
     await requireAdmin();
-    const value = validateInput(input, false);
+    const value = validateInput(input);
     await updateUser(id, value);
     revalidatePath("/");
     return { ok: true } as const;

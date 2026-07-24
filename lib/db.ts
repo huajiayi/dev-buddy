@@ -318,6 +318,14 @@ export async function ensureSchema() {
         ALTER TABLE ssh_terminal_sessions
           ADD COLUMN IF NOT EXISTS actor_user_id UUID REFERENCES app_users(id) ON DELETE SET NULL;
       `))
+      .then(() => getPool().query(`
+        CREATE TABLE IF NOT EXISTS system_settings (
+          key VARCHAR(100) PRIMARY KEY,
+          value_encrypted TEXT NOT NULL,
+          updated_by UUID REFERENCES app_users(id) ON DELETE SET NULL,
+          updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        );
+      `))
       .then(() => undefined)
       .catch((error) => {
         schemaReady = null;

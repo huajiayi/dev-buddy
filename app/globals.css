@@ -552,6 +552,15 @@ body {
   padding-top: 16px;
 }
 
+.settings-card {
+  max-width: 720px;
+}
+
+.settings-form {
+  max-width: 480px;
+  margin-top: 24px;
+}
+
 .aliyun-avatar {
   color: #ff6a00 !important;
   background: #fff3e8 !important;

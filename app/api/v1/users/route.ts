@@ -34,12 +34,6 @@ export async function POST(request: NextRequest) {
     }
     const body = await request.json() as Record<string, unknown>;
     const input = parseUserApiInput(body);
-    if (!input.password) {
-      return NextResponse.json(
-        { error: "password_required", message: "创建本地账号时必须设置初始密码" },
-        { status: 400 },
-      );
-    }
     const id = await createUser(input);
     return NextResponse.json({ data: { id } }, { status: 201 });
   } catch (error) {

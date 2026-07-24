@@ -28,7 +28,7 @@ function Shell({ children, user }: { children: ReactNode; user: AppUser }) {
   const databaseWorkbench = /^\/databases\/[^/]+\/workbench/.test(pathname);
   const sshTerminal = /^\/servers\/[^/]+\/ssh-terminal/.test(pathname);
   const workspaceMode = databaseWorkbench || sshTerminal;
-  const selectedKey = ["/database-executions", "/database-policies", "/databases", "/terminal-sessions", "/servers", "/command-policies", "/executions", "/api-keys", "/aliyun/resources", "/aliyun/costs", "/aliyun/risks"].find((key) => pathname.startsWith(key))
+  const selectedKey = ["/database-executions", "/database-policies", "/databases", "/terminal-sessions", "/servers", "/command-policies", "/executions", "/system-settings", "/api-keys", "/aliyun/resources", "/aliyun/costs", "/aliyun/risks"].find((key) => pathname.startsWith(key))
     ?? (pathname.startsWith("/aliyun") ? "/aliyun" : "/");
   const accountItems: MenuProps["items"] = [
     { key: "identity", label: <div className="account-menu-identity"><Text strong>{user.displayName}</Text><Text type="secondary">{roleLabels[user.role]}</Text></div>, disabled: true },
@@ -37,7 +37,6 @@ function Shell({ children, user }: { children: ReactNode; user: AppUser }) {
   ];
 
   const menuItems: MenuProps["items"] = [
-    ...(user.role === "admin" ? [{ key: "/", icon: <TeamOutlined />, label: "用户管理" }] : []),
     {
       key: "server-operations", icon: <DesktopOutlined />, label: "服务器运维",
       children: [
@@ -70,7 +69,11 @@ function Shell({ children, user }: { children: ReactNode; user: AppUser }) {
     }] : []),
     {
       key: "system-management", icon: <SettingOutlined />, label: "系统管理",
-      children: [{ key: "/api-keys", icon: <KeyOutlined />, label: "API Key" }],
+      children: [
+        ...(user.role === "admin" ? [{ key: "/", icon: <TeamOutlined />, label: "用户管理" }] : []),
+        ...(user.role === "admin" ? [{ key: "/system-settings", icon: <SettingOutlined />, label: "系统设置" }] : []),
+        { key: "/api-keys", icon: <KeyOutlined />, label: "API Key" },
+      ],
     },
   ];
 
