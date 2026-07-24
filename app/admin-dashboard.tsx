@@ -50,13 +50,11 @@ export default function UserManagement({
 
   function openCreate() {
     setEditing(null);
-    form.setFieldsValue({ username: "", displayName: "", email: "", role: "operator", password: "", confirmPassword: "" });
     setModalOpen(true);
   }
 
   function openEdit(user: AppUser) {
     setEditing(user);
-    form.setFieldsValue({ username: user.username, displayName: user.displayName, email: user.email || "", role: user.role, password: "", confirmPassword: "" });
     setModalOpen(true);
   }
 
@@ -80,7 +78,7 @@ export default function UserManagement({
     { title: "角色", dataIndex: "role", width: 110, render: (role: UserRole) => <Tag color={roleMeta[role].color}>{roleMeta[role].label}</Tag> },
     { title: "状态", dataIndex: "enabled", width: 105, render: (enabled: boolean, user) => <Switch checked={enabled} checkedChildren="启用" unCheckedChildren="禁用" disabled={user.id === currentUserId || pending} onChange={(checked) => startTransition(async () => { const result = await toggleUserAction(user.id, checked); if (result.ok) message.success(checked ? "用户已启用" : "用户已禁用"); else message.error(result.error); })} /> },
     { title: "最近登录", dataIndex: "lastLoginAt", width: 180, render: (value: string | null) => value ? new Date(value).toLocaleString("zh-CN") : "从未登录" },
-    { title: "操作", fixed: "right", width: 280, render: (_, user) => <Space size={2}><Button type="text" size="small" icon={<EditOutlined />} onClick={() => openEdit(user)}>编辑</Button><Button type="text" size="small" icon={<SafetyCertificateOutlined />} disabled={user.role === "admin"} onClick={() => openPermissions(user)}>资源权限</Button><Button type="text" size="small" icon={<KeyOutlined />} disabled={user.id === currentUserId} onClick={() => { setPasswordUser(user); passwordForm.resetFields(); }}>重置密码</Button><Popconfirm title="确定删除这个用户吗？" description="用户的登录会话、API Key 和资源授权都会失效" okText="删除" cancelText="取消" disabled={user.id === currentUserId} onConfirm={() => startTransition(async () => { const result = await deleteUserAction(user.id); if (result.ok) message.success("用户已删除"); else message.error(result.error); })}><Button type="text" size="small" danger disabled={user.id === currentUserId} icon={<DeleteOutlined />} aria-label="删除用户" /></Popconfirm></Space> },
+    { title: "操作", fixed: "right", width: 280, render: (_, user) => <Space size={2}><Button type="text" size="small" icon={<EditOutlined />} onClick={() => openEdit(user)}>编辑</Button><Button type="text" size="small" icon={<SafetyCertificateOutlined />} disabled={user.role === "admin"} onClick={() => openPermissions(user)}>资源权限</Button><Button type="text" size="small" icon={<KeyOutlined />} disabled={user.id === currentUserId} onClick={() => setPasswordUser(user)}>重置密码</Button><Popconfirm title="确定删除这个用户吗？" description="用户的登录会话、API Key 和资源授权都会失效" okText="删除" cancelText="取消" disabled={user.id === currentUserId} onConfirm={() => startTransition(async () => { const result = await deleteUserAction(user.id); if (result.ok) message.success("用户已删除"); else message.error(result.error); })}><Button type="text" size="small" danger disabled={user.id === currentUserId} icon={<DeleteOutlined />} aria-label="删除用户" /></Popconfirm></Space> },
   ];
 
   return <>
@@ -91,11 +89,11 @@ export default function UserManagement({
       <Table<AppUser> rowKey="id" columns={columns} dataSource={filteredUsers} scroll={{ x: 1165 }} pagination={{ pageSize: 10, showSizeChanger: false, showTotal: (total) => `共 ${total} 条` }} />
     </section>
 
-    <Modal title={editing ? "编辑用户" : "新增用户"} open={modalOpen} okText={editing ? "保存" : "创建用户"} cancelText="取消" confirmLoading={pending} onCancel={() => { setModalOpen(false); form.resetFields(); }} onOk={() => form.submit()} destroyOnHidden>
+    <Modal title={editing ? "编辑用户" : "新增用户"} open={modalOpen} okText={editing ? "保存" : "创建用户"} cancelText="取消" confirmLoading={pending} onCancel={() => setModalOpen(false)} onOk={() => form.submit()} destroyOnHidden afterOpenChange={(visible) => { if (!visible) return; form.resetFields(); form.setFieldsValue(editing ? { username: editing.username, displayName: editing.displayName, email: editing.email || "", role: editing.role, password: "", confirmPassword: "" } : { username: "", displayName: "", email: "", role: "operator", password: "", confirmPassword: "" }); }}>
       <Form<UserFormInput & { confirmPassword?: string }> form={form} layout="vertical" onFinish={(values) => startTransition(async () => {
         const result = editing ? await updateUserAction(editing.id, values) : await createUserAction(values);
         if (!result.ok) { message.error(result.error); return; }
-        setModalOpen(false); form.resetFields(); message.success(editing ? "用户已更新" : "用户已创建");
+        setModalOpen(false); message.success(editing ? "用户已更新" : "用户已创建");
       })} className="user-form">
         <Form.Item name="displayName" label="姓名" rules={[{ required: true, message: "请输入姓名" }]}><Input maxLength={100} /></Form.Item>
         <Form.Item name="username" label="用户名" rules={[{ required: true, message: "请输入用户名" }, { pattern: /^[A-Za-z0-9._-]{3,64}$/, message: "请输入 3–64 位有效用户名" }]}><Input autoComplete="off" /></Form.Item>
@@ -105,8 +103,8 @@ export default function UserManagement({
       </Form>
     </Modal>
 
-    <Modal title={`重置 ${passwordUser?.displayName || "用户"} 的密码`} open={Boolean(passwordUser)} okText="重置密码" cancelText="取消" confirmLoading={pending} onCancel={() => setPasswordUser(null)} onOk={() => passwordForm.submit()} destroyOnHidden>
-      <Form form={passwordForm} layout="vertical" onFinish={(values) => passwordUser && startTransition(async () => { const result = await resetPasswordAction(passwordUser.id, values.password); if (!result.ok) { message.error(result.error); return; } setPasswordUser(null); passwordForm.resetFields(); message.success("密码已重置，用户的已有会话已失效"); })}>
+    <Modal title={`重置 ${passwordUser?.displayName || "用户"} 的密码`} open={Boolean(passwordUser)} okText="重置密码" cancelText="取消" confirmLoading={pending} onCancel={() => setPasswordUser(null)} onOk={() => passwordForm.submit()} destroyOnHidden afterOpenChange={(visible) => { if (visible) passwordForm.resetFields(); }}>
+      <Form form={passwordForm} layout="vertical" onFinish={(values) => passwordUser && startTransition(async () => { const result = await resetPasswordAction(passwordUser.id, values.password); if (!result.ok) { message.error(result.error); return; } setPasswordUser(null); message.success("密码已重置，用户的已有会话已失效"); })}>
         <Form.Item name="password" label="新密码" rules={[{ required: true, min: 8, message: "密码至少需要 8 个字符" }]}><Input.Password autoComplete="new-password" /></Form.Item>
         <Form.Item name="confirmPassword" label="确认新密码" dependencies={["password"]} rules={[{ required: true, message: "请确认新密码" }, ({ getFieldValue }) => ({ validator(_, value) { return !value || value === getFieldValue("password") ? Promise.resolve() : Promise.reject(new Error("两次输入的密码不一致")); } })]}><Input.Password autoComplete="new-password" /></Form.Item>
       </Form>

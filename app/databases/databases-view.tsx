@@ -24,15 +24,13 @@ export default function DatabasesView({ databases, servers, isAdmin, grants }: {
   const mode = Form.useWatch("connectionMode", form);
   const grantedIds = new Set(grants.filter((item) => item.canExecuteSql).map((item) => item.databaseId));
 
-  const close = () => { setOpen(false); setEditing(undefined); setCaName(undefined); form.resetFields(); };
+  const close = () => { setOpen(false); setEditing(undefined); setCaName(undefined); };
   const create = () => {
-    setEditing(undefined); form.resetFields();
-    form.setFieldsValue({ engine: "postgresql", port: 5432, connectionMode: "direct", tlsMode: "disable", environment: "production", sshServerId: null });
+    setEditing(undefined);
     setOpen(true);
   };
   const edit = (item: ManagedDatabase) => {
     setEditing(item);
-    form.setFieldsValue({ ...item, password: undefined, tlsCa: undefined, clearTlsCa: false });
     setOpen(true);
   };
   const submit = (values: DatabaseInput) => startTransition(async () => {
@@ -61,7 +59,7 @@ export default function DatabasesView({ databases, servers, isAdmin, grants }: {
     <Breadcrumb items={[{ title: "首页" }, { title: "数据库管理" }, { title: "数据库列表" }]} />
     <div className="page-heading"><div><Title level={2}>关系型数据库</Title><Text type="secondary">{isAdmin ? "管理 PostgreSQL、MySQL/MariaDB 资产；SQL 操作由执行策略控制" : "仅显示管理员已授权给你的数据库"}</Text></div>{isAdmin && <Button type="primary" icon={<PlusOutlined />} onClick={create}>添加数据库</Button>}</div>
     <Card className="detail-card"><Table rowKey="id" columns={columns} dataSource={databases} scroll={{ x: 1360 }} /></Card>
-    <Modal width={720} title={editing ? "编辑数据库" : "添加数据库"} open={open} onCancel={close} onOk={() => form.submit()} confirmLoading={pending} destroyOnHidden>
+    <Modal width={720} title={editing ? "编辑数据库" : "添加数据库"} open={open} onCancel={close} onOk={() => form.submit()} confirmLoading={pending} destroyOnHidden afterOpenChange={(visible) => { if (!visible) return; form.resetFields(); form.setFieldsValue(editing ? { ...editing, password: undefined, tlsCa: undefined, clearTlsCa: false } : { engine: "postgresql", port: 5432, connectionMode: "direct", tlsMode: "disable", environment: "production", sshServerId: null }); }}>
       <Form form={form} layout="vertical" onFinish={submit}>
         <div className="form-grid"><Form.Item name="name" label="名称" rules={[{ required: true }]}><Input /></Form.Item><Form.Item name="environment" label="环境"><Select options={["production", "staging", "development"].map((value) => ({ value }))} /></Form.Item></div>
         <div className="form-grid"><Form.Item name="engine" label="引擎" rules={[{ required: true }]}><Select onChange={(engine) => form.setFieldValue("port", engine === "postgresql" ? 5432 : 3306)} options={[{ value: "postgresql", label: "PostgreSQL" }, { value: "mysql", label: "MySQL / MariaDB" }]} /></Form.Item><Form.Item name="databaseName" label="逻辑库" rules={[{ required: true }]}><Input /></Form.Item></div>

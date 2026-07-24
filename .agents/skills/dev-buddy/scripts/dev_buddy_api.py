@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import getpass
 import json
 import os
 import sys
@@ -85,6 +86,7 @@ def build_parser() -> argparse.ArgumentParser:
     subparsers.add_parser("policies", help="List command policies")
     subparsers.add_parser("databases", help="List enabled managed databases")
     subparsers.add_parser("db-policies", help="List database SQL policies")
+    subparsers.add_parser("users", help="List users (administrator API Key required)")
 
     execute = subparsers.add_parser("exec", help="Execute one filtered diagnostic command")
     execute.add_argument("--server-id", required=True)
@@ -111,6 +113,37 @@ def build_parser() -> argparse.ArgumentParser:
     db_policy.add_argument("--action", required=True, choices=("allow", "deny"))
     db_policy.add_argument("--priority", required=True, type=int, choices=range(1, 101), metavar="1..100")
     db_policy.add_argument("--disabled", action="store_true")
+
+    user_create = subparsers.add_parser("user-create", help="Create a local user and securely prompt for the password")
+    user_create.add_argument("--username", required=True)
+    user_create.add_argument("--display-name", required=True)
+    user_create.add_argument("--email")
+    user_create.add_argument("--role", choices=("admin", "operator"), default="operator")
+
+    user_update = subparsers.add_parser("user-update", help="Update a user")
+    user_update.add_argument("--user-id", required=True)
+    user_update.add_argument("--username")
+    user_update.add_argument("--display-name")
+    user_update.add_argument("--email")
+    user_update.add_argument("--role", choices=("admin", "operator"))
+    status = user_update.add_mutually_exclusive_group()
+    status.add_argument("--enable", action="store_true")
+    status.add_argument("--disable", action="store_true")
+    user_update.add_argument("--reset-password", action="store_true")
+
+    user_delete = subparsers.add_parser("user-delete", help="Delete a user")
+    user_delete.add_argument("--user-id", required=True)
+    user_delete.add_argument("--confirm", action="store_true", help="Confirm this irreversible operation")
+
+    permissions = subparsers.add_parser("user-permissions", help="Read one user's resource permissions")
+    permissions.add_argument("--user-id", required=True)
+
+    permissions_set = subparsers.add_parser("user-permissions-set", help="Replace one operator's complete resource permission set")
+    permissions_set.add_argument("--user-id", required=True)
+    permissions_set.add_argument("--server-command", action="append", default=[], metavar="SERVER_ID")
+    permissions_set.add_argument("--server-ssh", action="append", default=[], metavar="SERVER_ID")
+    permissions_set.add_argument("--database", action="append", default=[], metavar="DATABASE_ID")
+    permissions_set.add_argument("--confirm-replace", action="store_true")
     return parser
 
 
@@ -125,6 +158,8 @@ def main() -> int:
             result = request_json("/api/v1/databases")
         elif args.operation == "db-policies":
             result = request_json("/api/v1/database-policies")
+        elif args.operation == "users":
+            result = request_json("/api/v1/users")
         elif args.operation == "exec":
             result = request_json(
                 "/api/v1/executions",
@@ -159,7 +194,7 @@ def main() -> int:
                     "timeoutSeconds": args.timeout,
                 },
             )
-        else:
+        elif args.operation == "db-policy-create":
             result = request_json(
                 "/api/v1/database-policies",
                 method="POST",
@@ -169,6 +204,71 @@ def main() -> int:
                     "action": args.action,
                     "priority": args.priority,
                     "enabled": not args.disabled,
+                },
+            )
+        elif args.operation == "user-create":
+            password = getpass.getpass("Initial password: ")
+            confirmation = getpass.getpass("Confirm password: ")
+            if password != confirmation:
+                raise ValueError("password confirmation does not match")
+            result = request_json(
+                "/api/v1/users",
+                method="POST",
+                payload={
+                    "username": args.username,
+                    "displayName": args.display_name,
+                    "email": args.email,
+                    "role": args.role,
+                    "password": password,
+                },
+            )
+        elif args.operation == "user-update":
+            payload = {
+                key: value for key, value in {
+                    "username": args.username,
+                    "displayName": args.display_name,
+                    "email": args.email,
+                    "role": args.role,
+                }.items() if value is not None
+            }
+            if args.enable:
+                payload["enabled"] = True
+            elif args.disable:
+                payload["enabled"] = False
+            if args.reset_password:
+                password = getpass.getpass("New password: ")
+                confirmation = getpass.getpass("Confirm password: ")
+                if password != confirmation:
+                    raise ValueError("password confirmation does not match")
+                payload["password"] = password
+            if not payload:
+                raise ValueError("user-update requires at least one change")
+            result = request_json(f"/api/v1/users/{args.user_id}", method="PATCH", payload=payload)
+        elif args.operation == "user-delete":
+            if not args.confirm:
+                raise ValueError("user-delete requires --confirm")
+            result = request_json(f"/api/v1/users/{args.user_id}", method="DELETE")
+        elif args.operation == "user-permissions":
+            result = request_json(f"/api/v1/users/{args.user_id}/permissions")
+        else:
+            if not args.confirm_replace:
+                raise ValueError("user-permissions-set requires --confirm-replace")
+            server_ids = list(dict.fromkeys([*args.server_command, *args.server_ssh]))
+            command_ids = set(args.server_command)
+            ssh_ids = set(args.server_ssh)
+            result = request_json(
+                f"/api/v1/users/{args.user_id}/permissions",
+                method="PUT",
+                payload={
+                    "serverGrants": [
+                        {
+                            "serverId": server_id,
+                            "canExecuteCommand": server_id in command_ids,
+                            "canOpenSsh": server_id in ssh_ids,
+                        }
+                        for server_id in server_ids
+                    ],
+                    "databaseIds": list(dict.fromkeys(args.database)),
                 },
             )
         print(json.dumps(result, ensure_ascii=False, indent=2))

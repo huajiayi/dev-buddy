@@ -20,23 +20,13 @@ export default function PoliciesView({ policies }: { policies: CommandPolicy[] }
   const closeModal = () => {
     setOpen(false);
     setEditingPolicy(undefined);
-    form.resetFields();
   };
   const openCreateModal = () => {
     setEditingPolicy(undefined);
-    form.resetFields();
-    form.setFieldsValue({ action: "deny", priority: 50, enabled: true });
     setOpen(true);
   };
   const openEditModal = (policy: CommandPolicy) => {
     setEditingPolicy(policy);
-    form.setFieldsValue({
-      name: policy.name,
-      pattern: policy.pattern,
-      action: policy.action,
-      priority: policy.priority,
-      enabled: policy.enabled,
-    });
     setOpen(true);
   };
   const columns: TableColumnsType<CommandPolicy> = [
@@ -60,7 +50,7 @@ export default function PoliciesView({ policies }: { policies: CommandPolicy[] }
     <Breadcrumb items={[{ title: "首页" }, { title: "服务器运维" }, { title: "命令策略" }]} />
     <div className="page-heading"><div><Title level={2}>命令策略<NoticePopover title="未匹配策略时默认允许" description="系统不再内置高危命令或参数拦截。请通过高优先级 deny 策略保护删除、提权、重启和敏感文件访问等操作。" /></Title><Text type="secondary">按优先级匹配正则规则，第一条命中的策略生效</Text></div><Button type="primary" icon={<PlusOutlined />} onClick={openCreateModal}>新增策略</Button></div>
     <Card className="detail-card"><Table rowKey="id" columns={columns} dataSource={policies} pagination={false} locale={{ emptyText: "暂无自定义策略，普通命令将默认允许" }} /></Card>
-    <Modal title={editingPolicy ? "编辑命令策略" : "新增命令策略"} open={open} onCancel={closeModal} onOk={() => form.submit()} okText={editingPolicy ? "保存" : "创建"} confirmLoading={pending} destroyOnHidden>
+    <Modal title={editingPolicy ? "编辑命令策略" : "新增命令策略"} open={open} onCancel={closeModal} onOk={() => form.submit()} okText={editingPolicy ? "保存" : "创建"} confirmLoading={pending} destroyOnHidden afterOpenChange={(visible) => { if (!visible) return; form.resetFields(); form.setFieldsValue(editingPolicy ? { name: editingPolicy.name, pattern: editingPolicy.pattern, action: editingPolicy.action, priority: editingPolicy.priority, enabled: editingPolicy.enabled } : { action: "deny", priority: 50, enabled: true }); }}>
       <Form form={form} layout="vertical" initialValues={{ action: "deny", priority: 50, enabled: true }} onFinish={submit}>
         <Form.Item name="name" label="名称" rules={[{ required: true }]}><Input placeholder="允许查看 nginx 配置摘要" /></Form.Item>
         <Form.Item name="pattern" label="命令正则表达式" rules={[{ required: true }]} extra="按完整命令进行不区分大小写匹配"><Input.TextArea rows={3} placeholder="^nginx\s+-T$" /></Form.Item>

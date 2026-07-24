@@ -15,9 +15,9 @@ export default function DatabasePoliciesView({ policies }: { policies: DatabaseQ
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<DatabaseQueryPolicy>();
   const [pending, startTransition] = useTransition();
-  const close = () => { setOpen(false); setEditing(undefined); form.resetFields(); };
-  const create = () => { setEditing(undefined); form.setFieldsValue({ name: "", pattern: "", action: "deny", priority: 50, enabled: true }); setOpen(true); };
-  const edit = (item: DatabaseQueryPolicy) => { setEditing(item); form.setFieldsValue(item); setOpen(true); };
+  const close = () => { setOpen(false); setEditing(undefined); };
+  const create = () => { setEditing(undefined); setOpen(true); };
+  const edit = (item: DatabaseQueryPolicy) => { setEditing(item); setOpen(true); };
   const submit = (values: DatabasePolicyInput) => startTransition(async () => {
     const result = editing ? await editPolicy(editing.id, values) : await createPolicy(values);
     if (!result.ok) { message.error(result.error); return; }
@@ -35,7 +35,7 @@ export default function DatabasePoliciesView({ policies }: { policies: DatabaseQ
     <Breadcrumb items={[{ title: "首页" }, { title: "数据库管理" }, { title: "SQL 策略" }]} />
     <div className="page-heading"><div><Title level={2}>SQL 执行策略<NoticePopover title="写操作需要显式允许" description="未匹配策略时，单条只读 SQL 默认允许，INSERT、UPDATE、DELETE、DDL 等默认拒绝。请优先创建范围精确的 allow，并用更高优先级的 deny 保护敏感表或高危操作。" /></Title><Text type="secondary">按优先级使用正则匹配完整 SQL，第一条命中的策略生效</Text></div><Button type="primary" icon={<PlusOutlined />} onClick={create}>新增策略</Button></div>
     <Card className="detail-card"><Table rowKey="id" columns={columns} dataSource={policies} pagination={false} locale={{ emptyText: "暂无自定义策略，当前仅允许内置只读 SQL" }} /></Card>
-    <Modal title={editing ? "编辑 SQL 策略" : "新增 SQL 策略"} open={open} onCancel={close} onOk={() => form.submit()} confirmLoading={pending} destroyOnHidden>
+    <Modal title={editing ? "编辑 SQL 策略" : "新增 SQL 策略"} open={open} onCancel={close} onOk={() => form.submit()} confirmLoading={pending} destroyOnHidden afterOpenChange={(visible) => { if (!visible) return; form.resetFields(); form.setFieldsValue(editing || { name: "", pattern: "", action: "deny", priority: 50, enabled: true }); }}>
       <Form form={form} layout="vertical" onFinish={submit}>
         <Form.Item name="name" label="名称" rules={[{ required: true }]}><Input placeholder="允许更新任务状态" /></Form.Item>
         <Form.Item name="pattern" label="SQL 正则表达式" extra="按完整 SQL 进行不区分大小写匹配" rules={[{ required: true }]}><Input.TextArea rows={4} placeholder="^UPDATE\s+jobs\s+SET\s+status\s*=" /></Form.Item>

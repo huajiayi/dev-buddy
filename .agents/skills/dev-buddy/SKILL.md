@@ -1,6 +1,6 @@
 ---
 name: dev-buddy
-description: Operate Dev Buddy capabilities through its project-scoped HTTP APIs. Use when Codex needs to inspect managed Linux servers, execute policy-filtered SQL against managed PostgreSQL, MySQL, or MariaDB databases, or manage the corresponding command and SQL policies without direct infrastructure credentials.
+description: Operate Dev Buddy capabilities through its project-scoped HTTP APIs. Use when Codex needs to inspect managed Linux servers, execute policy-filtered SQL against managed PostgreSQL, MySQL, or MariaDB databases, manage command and SQL policies, or administer Dev Buddy users and their server/database resource permissions without direct infrastructure credentials.
 ---
 
 # Dev Buddy
@@ -52,6 +52,67 @@ Read configuration automatically from the `.env` file beside this `SKILL.md`:
 - `DEV_BUDDY_API_KEY`: project API key used for identity authentication
 
 Environment variables override values from the Skill-local file. Keep the real key only in the Git-ignored `.env`; never print it, log it, or pass it as a command argument.
+
+## Manage users and resource permissions
+
+Require an API Key bound to an enabled administrator. Treat HTTP 403 as authoritative; never try another user's Key or bypass role checks.
+
+List users before any change and resolve the target by exact username or ID:
+
+```powershell
+py -3 <skill-dir>\scripts\dev_buddy_api.py users
+py -3 <skill-dir>\scripts\dev_buddy_api.py user-permissions --user-id <user-id>
+```
+
+Update only fields explicitly requested:
+
+```powershell
+py -3 <skill-dir>\scripts\dev_buddy_api.py user-update `
+  --user-id <user-id> `
+  --role operator `
+  --enable
+```
+
+Create a local user only in an interactive terminal so the human can enter the initial password without exposing it in arguments or conversation:
+
+```powershell
+py -3 <skill-dir>\scripts\dev_buddy_api.py user-create `
+  --username <username> `
+  --display-name "<display-name>" `
+  --email <email> `
+  --role operator
+```
+
+Never request, display, store, or invent a user's password. If no interactive terminal is available, ask the user to create or reset the password in the web interface.
+
+Resource permission updates replace the operator's complete permission set. Before changing it:
+
+1. Read the current permissions.
+2. List servers and databases to resolve every resource by exact ID and name.
+3. Build the complete desired set, including permissions that must remain.
+4. Show the additions and removals to the user and obtain explicit confirmation.
+5. Submit the complete set with `--confirm-replace`.
+
+```powershell
+py -3 <skill-dir>\scripts\dev_buddy_api.py user-permissions-set `
+  --user-id <user-id> `
+  --server-command <server-id> `
+  --server-ssh <server-id> `
+  --database <database-id> `
+  --confirm-replace
+```
+
+Repeat `--server-command`, `--server-ssh`, or `--database` for multiple resources. Omitting a category removes all existing grants in that category. Never grant full SSH when the user requested only controlled command execution.
+
+Delete a user only after showing the exact username, role, and impact, then obtaining explicit confirmation:
+
+```powershell
+py -3 <skill-dir>\scripts\dev_buddy_api.py user-delete `
+  --user-id <user-id> `
+  --confirm
+```
+
+Do not disable, demote, delete, or reset the password of the administrator identity bound to the active API Key. Preserve at least one enabled administrator.
 
 ## Diagnose a server
 

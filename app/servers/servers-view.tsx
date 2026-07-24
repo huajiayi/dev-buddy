@@ -29,27 +29,15 @@ export default function ServersView({ servers, isAdmin, grants }: { servers: Man
     setOpen(false);
     setEditingServer(undefined);
     setUploadedKeyName(undefined);
-    form.resetFields();
   };
   const openCreateModal = () => {
     setEditingServer(undefined);
     setUploadedKeyName(undefined);
-    form.resetFields();
-    form.setFieldsValue({ port: 22, authType: "privateKey", environment: "production" });
     setOpen(true);
   };
   const openEditModal = (server: ManagedServer) => {
     setEditingServer(server);
     setUploadedKeyName(undefined);
-    form.setFieldsValue({
-      name: server.name,
-      host: server.host,
-      port: server.port,
-      username: server.username,
-      authType: server.authType,
-      environment: server.environment,
-      credential: undefined,
-    });
     setOpen(true);
   };
   const submit = (values: ServerInput) => startTransition(async () => {
@@ -98,7 +86,7 @@ export default function ServersView({ servers, isAdmin, grants }: { servers: Man
     <Breadcrumb items={[{ title: "首页" }, { title: "服务器运维" }, { title: "服务器列表" }]} />
     <div className="page-heading"><div><Title level={2}>服务器列表</Title><Text type="secondary">{isAdmin ? "管理 Linux 服务器及其连接方式" : "仅显示管理员已授权给你的服务器"}</Text></div>{isAdmin && <Button type="primary" icon={<PlusOutlined />} onClick={openCreateModal}>添加服务器</Button>}</div>
     <Card className="detail-card"><Table rowKey="id" columns={columns} dataSource={servers} scroll={{ x: 1290 }} pagination={{ pageSize: 10 }} locale={{ emptyText: "暂无服务器，请先添加 SSH 连接信息" }} /></Card>
-    <Modal title={editingServer ? "编辑 Linux 服务器" : "添加 Linux 服务器"} open={open} onCancel={closeModal} onOk={() => form.submit()} okText={editingServer ? "保存" : "添加"} confirmLoading={pending} destroyOnHidden>
+    <Modal title={editingServer ? "编辑 Linux 服务器" : "添加 Linux 服务器"} open={open} onCancel={closeModal} onOk={() => form.submit()} okText={editingServer ? "保存" : "添加"} confirmLoading={pending} destroyOnHidden afterOpenChange={(visible) => { if (!visible) return; form.resetFields(); form.setFieldsValue(editingServer ? { name: editingServer.name, host: editingServer.host, port: editingServer.port, username: editingServer.username, authType: editingServer.authType, environment: editingServer.environment, credential: undefined } : { port: 22, authType: "privateKey", environment: "production" }); }}>
       <Form form={form} layout="vertical" initialValues={{ port: 22, authType: "privateKey", environment: "production" }} onFinish={submit} className="server-form">
         <Form.Item name="name" label="名称" rules={[{ required: true }]}><Input placeholder="生产环境 Web-01" /></Form.Item>
         <div className="form-grid"><Form.Item name="host" label="IP 或域名" rules={[{ required: true }]}><Input placeholder="10.0.0.10" /></Form.Item><Form.Item name="port" label="SSH 端口" rules={[{ required: true }]}><InputNumber min={1} max={65535} className="full-width" /></Form.Item></div>
