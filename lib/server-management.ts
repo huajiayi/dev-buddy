@@ -337,21 +337,25 @@ export async function checkApiKeyRateLimit(apiKeyId: string, limit = 30) {
   return Number(result.rows[0]?.count ?? 0) < limit;
 }
 
-async function insertExecution(input: { id: string; serverId: string; apiKeyId?: string | null; actorUserId?: string | null; command: string; reason: string; status: string; policyDecision: string; policyReason: string; remoteAddress?: string; source?: string }) {
+async function insertExecution(input: { id: string; serverId: string; apiKeyId?: string | null; actorUserId?: string | null; managedSessionId?: string | null; command: string; reason: string; status: string; policyDecision: string; policyReason: string; remoteAddress?: string; source?: string }) {
   await getPool().query(
-    `INSERT INTO command_executions (id, server_id, api_key_id, actor_user_id, command, reason, status, policy_decision, policy_reason, remote_address, source)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
-    [input.id, input.serverId, input.apiKeyId || null, input.actorUserId || null, input.command, input.reason, input.status, input.policyDecision, input.policyReason, input.remoteAddress || null, input.source || "api"],
+    `INSERT INTO command_executions
+     (id,server_id,api_key_id,actor_user_id,managed_session_id,command,reason,status,
+      policy_decision,policy_reason,remote_address,source)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`,
+    [input.id, input.serverId, input.apiKeyId || null, input.actorUserId || null, input.managedSessionId || null, input.command, input.reason, input.status, input.policyDecision, input.policyReason, input.remoteAddress || null, input.source || "api"],
   );
 }
 
-export async function executeManagedCommand(input: { serverId: string; apiKeyId?: string | null; actorUserId?: string | null; command: string; reason?: string; timeoutSeconds?: number; remoteAddress?: string; source?: string }) {
+export async function executeManagedCommand(input: { serverId: string; apiKeyId?: string | null; actorUserId?: string | null; managedSessionId?: string | null; bypassPolicy?: boolean; command: string; reason?: string; timeoutSeconds?: number; remoteAddress?: string; source?: string }) {
   await ensureSchema();
   const executionId = randomUUID();
   const target = await getServerWithCredential(input.serverId);
   if (!target) throw new Error("服务器不存在");
-  const decision = await evaluateCommand(input.command);
-  await insertExecution({ id: executionId, serverId: input.serverId, apiKeyId: input.apiKeyId, actorUserId: input.actorUserId, command: input.command, reason: input.reason?.slice(0, 500) || "", status: decision.allowed ? "running" : "rejected", policyDecision: decision.allowed ? "allow" : "deny", policyReason: decision.reason, remoteAddress: input.remoteAddress, source: input.source });
+  const decision = input.bypassPolicy
+    ? { allowed: true, reason: "AI 全托管会话临时授权" }
+    : await evaluateCommand(input.command);
+  await insertExecution({ id: executionId, serverId: input.serverId, apiKeyId: input.apiKeyId, actorUserId: input.actorUserId, managedSessionId: input.managedSessionId, command: input.command, reason: input.reason?.slice(0, 500) || "", status: decision.allowed ? "running" : "rejected", policyDecision: decision.allowed ? "allow" : "deny", policyReason: decision.reason, remoteAddress: input.remoteAddress, source: input.source });
   if (!decision.allowed) return { executionId, status: "rejected", policyDecision: "deny", policyReason: decision.reason, stdout: "", stderr: "", exitCode: null, durationMs: 0 };
   if (!target.server.enabled) {
     await getPool().query("UPDATE command_executions SET status='failed', stderr=$2, finished_at=NOW() WHERE id=$1", [executionId, "服务器已禁用"]);

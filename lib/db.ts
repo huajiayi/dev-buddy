@@ -331,6 +331,77 @@ export async function ensureSchema() {
           updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
         );
       `))
+      .then(() => getPool().query(`
+        CREATE TABLE IF NOT EXISTS ai_managed_sessions (
+          id UUID PRIMARY KEY,
+          user_id UUID NOT NULL REFERENCES app_users(id) ON DELETE CASCADE,
+          api_key_id UUID REFERENCES project_api_keys(id) ON DELETE SET NULL,
+          token_hash CHAR(64) NOT NULL UNIQUE,
+          objective VARCHAR(500) NOT NULL,
+          reason TEXT NOT NULL,
+          planned_actions TEXT NOT NULL DEFAULT '',
+          status VARCHAR(16) NOT NULL DEFAULT 'active'
+            CHECK (status IN ('active', 'ending', 'completed', 'expired', 'revoked', 'failed')),
+          started_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+          expires_at TIMESTAMPTZ NOT NULL,
+          ended_at TIMESTAMPTZ,
+          ended_by UUID REFERENCES app_users(id) ON DELETE SET NULL,
+          end_reason TEXT,
+          summary_status VARCHAR(16) NOT NULL DEFAULT 'pending'
+            CHECK (summary_status IN ('pending', 'completed', 'failed')),
+          summary TEXT,
+          summary_data JSONB,
+          created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        );
+
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_ai_managed_sessions_active_user
+          ON ai_managed_sessions(user_id) WHERE status='active';
+        CREATE INDEX IF NOT EXISTS idx_ai_managed_sessions_created_at
+          ON ai_managed_sessions(created_at DESC);
+        CREATE INDEX IF NOT EXISTS idx_ai_managed_sessions_expires_at
+          ON ai_managed_sessions(expires_at) WHERE status='active';
+
+        CREATE TABLE IF NOT EXISTS ai_managed_session_resources (
+          session_id UUID NOT NULL REFERENCES ai_managed_sessions(id) ON DELETE CASCADE,
+          resource_type VARCHAR(16) NOT NULL CHECK (resource_type IN ('server', 'database')),
+          resource_id UUID NOT NULL,
+          resource_name VARCHAR(100) NOT NULL,
+          environment VARCHAR(32) NOT NULL,
+          PRIMARY KEY (session_id, resource_type, resource_id)
+        );
+
+        CREATE TABLE IF NOT EXISTS ai_managed_session_events (
+          id UUID PRIMARY KEY,
+          session_id UUID NOT NULL REFERENCES ai_managed_sessions(id) ON DELETE CASCADE,
+          sequence INTEGER NOT NULL,
+          event_type VARCHAR(32) NOT NULL,
+          resource_type VARCHAR(16) CHECK (resource_type IN ('server', 'database')),
+          resource_id UUID,
+          resource_name VARCHAR(100),
+          action TEXT NOT NULL,
+          status VARCHAR(24) NOT NULL,
+          execution_id UUID,
+          request_payload JSONB NOT NULL DEFAULT '{}'::jsonb,
+          result_metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
+          output_preview TEXT,
+          output_digest CHAR(64),
+          remote_address VARCHAR(128),
+          previous_hash CHAR(64),
+          event_hash CHAR(64) NOT NULL,
+          created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+          UNIQUE(session_id, sequence)
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_ai_managed_session_events_session
+          ON ai_managed_session_events(session_id, sequence);
+
+        ALTER TABLE command_executions
+          ADD COLUMN IF NOT EXISTS managed_session_id UUID
+            REFERENCES ai_managed_sessions(id) ON DELETE SET NULL;
+        ALTER TABLE database_query_executions
+          ADD COLUMN IF NOT EXISTS managed_session_id UUID
+            REFERENCES ai_managed_sessions(id) ON DELETE SET NULL;
+      `))
       .then(() => undefined)
       .catch((error) => {
         schemaReady = null;

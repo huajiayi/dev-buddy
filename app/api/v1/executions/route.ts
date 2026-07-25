@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { authenticateProjectApiKey, checkApiKeyRateLimit, executeManagedCommand } from "@/lib/server-management";
 import { requireServerAccess } from "@/lib/authorization";
+import { authorizeManagedSession, recordManagedSessionEvent } from "@/lib/managed-sessions";
 
 export const runtime = "nodejs";
 export const maxDuration = 65;
@@ -35,17 +36,56 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    await requireServerAccess({ userId: apiKey.ownerUserId, role: apiKey.ownerRole }, input.serverId);
+    const managedToken = request.headers.get("x-managed-session")?.trim();
+    const managedSession = managedToken
+      ? await authorizeManagedSession({
+        token: managedToken,
+        apiKey,
+        resourceType: "server",
+        resourceId: input.serverId,
+      })
+      : null;
+    if (!managedSession) {
+      await requireServerAccess({ userId: apiKey.ownerUserId, role: apiKey.ownerRole }, input.serverId);
+    }
     const forwarded = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim();
+    const remoteAddress = forwarded || request.headers.get("x-real-ip") || undefined;
     const result = await executeManagedCommand({
       serverId: input.serverId,
       apiKeyId: apiKey.id,
       actorUserId: apiKey.ownerUserId,
+      managedSessionId: managedSession?.id,
+      bypassPolicy: Boolean(managedSession),
       command: input.command,
       reason: typeof input.reason === "string" ? input.reason : "",
       timeoutSeconds,
-      remoteAddress: forwarded || request.headers.get("x-real-ip") || undefined,
+      remoteAddress,
+      source: managedSession ? "ai-managed" : "api",
     });
+    if (managedSession) {
+      await recordManagedSessionEvent({
+        sessionId: managedSession.id,
+        eventType: "server-command",
+        resourceType: "server",
+        resourceId: input.serverId,
+        resourceName: managedSession.resourceName,
+        action: input.command,
+        status: result.status,
+        executionId: result.executionId,
+        requestPayload: {
+          reason: typeof input.reason === "string" ? input.reason : "",
+          timeoutSeconds,
+        },
+        resultMetadata: {
+          exitCode: result.exitCode,
+          durationMs: result.durationMs,
+          policyDecision: result.policyDecision,
+          policyReason: result.policyReason,
+        },
+        output: [result.stdout, result.stderr].filter(Boolean).join("\n"),
+        remoteAddress,
+      });
+    }
     const status = result.status === "rejected" ? 403 : 200;
     return NextResponse.json(result, { status });
   } catch (error) {

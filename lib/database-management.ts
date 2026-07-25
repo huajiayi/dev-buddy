@@ -526,7 +526,8 @@ export async function checkDatabaseQueryRateLimit(apiKeyId: string, limit = 30) 
 
 export async function executeDatabaseQuery(input: {
   databaseId: string; apiKeyId?: string | null; sql: string; reason: string;
-  actorUserId?: string | null; timeoutSeconds?: number; remoteAddress?: string; source?: string;
+  actorUserId?: string | null; managedSessionId?: string | null; bypassPolicy?: boolean;
+  timeoutSeconds?: number; remoteAddress?: string; source?: string;
 }) {
   await ensureSchema();
   const row = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(input.databaseId)
@@ -540,10 +541,10 @@ export async function executeDatabaseQuery(input: {
     const message = "数据库资产不存在";
     await getPool().query(
       `INSERT INTO database_query_executions
-       (id,database_id,api_key_id,actor_user_id,database_name,sql,reason,status,error,remote_address,
+       (id,database_id,api_key_id,actor_user_id,managed_session_id,database_name,sql,reason,status,error,remote_address,
         policy_decision,policy_reason,statement_type,source,finished_at)
-       VALUES ($1,NULL,$2,$3,$4,$5,$6,'rejected',$7,$8,'deny',$7,'unknown',$9,NOW())`,
-      [executionId, input.apiKeyId || null, input.actorUserId || null, "未知数据库", input.sql.slice(0, 20 * 1024), reason, message, remoteAddress, input.source || "api"],
+       VALUES ($1,NULL,$2,$3,$4,$5,$6,$7,'rejected',$8,$9,'deny',$8,'unknown',$10,NOW())`,
+      [executionId, input.apiKeyId || null, input.actorUserId || null, input.managedSessionId || null, "未知数据库", input.sql.slice(0, 20 * 1024), reason, message, remoteAddress, input.source || "api"],
     );
     return { executionId, status: "rejected" as const, columns: [], rows: [], rowCount: 0, truncated: false, durationMs: Date.now() - startedAt, error: message };
   }
@@ -556,10 +557,10 @@ export async function executeDatabaseQuery(input: {
   ) => {
     await getPool().query(
       `INSERT INTO database_query_executions
-       (id,database_id,api_key_id,actor_user_id,database_name,sql,reason,status,error,remote_address,
+       (id,database_id,api_key_id,actor_user_id,managed_session_id,database_name,sql,reason,status,error,remote_address,
         policy_decision,policy_reason,statement_type,source,finished_at)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)`,
-      [executionId, row.id, input.apiKeyId || null, input.actorUserId || null, row.name, input.sql.slice(0, 20 * 1024), reason,
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)`,
+      [executionId, row.id, input.apiKeyId || null, input.actorUserId || null, input.managedSessionId || null, row.name, input.sql.slice(0, 20 * 1024), reason,
         status, error || null, remoteAddress, policyDecision, policyReason, statementType,
         input.source || "api", status === "running" ? null : new Date()],
     );
@@ -573,7 +574,9 @@ export async function executeDatabaseQuery(input: {
     await insertAudit("rejected", "deny", "SQL 为空、过长、多语句或语法无法解析", "unknown", message);
     return { executionId, status: "rejected" as const, columns: [], rows: [], rowCount: 0, truncated: false, durationMs: Date.now() - startedAt, error: message };
   }
-  const decision = await evaluateDatabaseQuery(analysis.sql, analysis);
+  const decision = input.bypassPolicy
+    ? { allowed: true, reason: "AI 全托管会话临时授权" }
+    : await evaluateDatabaseQuery(analysis.sql, analysis);
   if (!decision.allowed) {
     await insertAudit("rejected", "deny", decision.reason, analysis.statementType, decision.reason);
     return {

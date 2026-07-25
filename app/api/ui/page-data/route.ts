@@ -25,6 +25,7 @@ import {
   listSshTerminalSessions,
 } from "@/lib/server-management";
 import { hasDefaultUserPassword } from "@/lib/system-settings";
+import { listManagedSessionEvents, listManagedSessions } from "@/lib/managed-sessions";
 
 export const runtime = "nodejs";
 export const maxDuration = 65;
@@ -132,6 +133,28 @@ async function loadPageData(view: string, request: NextRequest, user: AppUser) {
   if (view === "system-settings") {
     requireAdmin(user);
     return { hasDefaultPassword: await hasDefaultUserPassword() };
+  }
+  if (view === "managed-sessions") {
+    const [sessions, servers, databases, serverIds, databaseIds] = await Promise.all([
+      listManagedSessions(user),
+      listManagedServers(),
+      listManagedDatabases(),
+      accessibleServerIds(user),
+      accessibleDatabaseIds(user),
+    ]);
+    return {
+      sessions,
+      servers: servers.filter((item) => item.enabled && (!serverIds || serverIds.has(item.id))),
+      databases: databases.filter((item) => item.enabled && (!databaseIds || databaseIds.has(item.id))),
+    };
+  }
+  if (view === "managed-session-audit") {
+    requireAdmin(user);
+    return { sessions: await listManagedSessions(user, true) };
+  }
+  if (view === "managed-session-detail") {
+    const id = requireId(request);
+    return { events: await listManagedSessionEvents(id, user) };
   }
   if (view === "aliyun-accounts") {
     requireAdmin(user);

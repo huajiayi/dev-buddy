@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { checkDatabaseQueryRateLimit, executeDatabaseQuery } from "@/lib/database-management";
 import { authenticateProjectApiKey } from "@/lib/server-management";
 import { requireDatabaseAccess } from "@/lib/authorization";
+import { authorizeManagedSession, recordManagedSessionEvent } from "@/lib/managed-sessions";
 
 export const runtime = "nodejs";
 function token(request: NextRequest) {
@@ -21,12 +22,51 @@ export async function POST(request: NextRequest) {
   const timeout = value.timeoutSeconds === undefined ? 15 : Number(value.timeoutSeconds);
   if (!Number.isInteger(timeout) || timeout < 1 || timeout > 30) return NextResponse.json({ error: "invalid_timeout", message: "timeoutSeconds 必须在 1 到 30 之间" }, { status: 400 });
   try {
-    await requireDatabaseAccess({ userId: apiKey.ownerUserId, role: apiKey.ownerRole }, value.databaseId, "executeSql");
+    const managedToken = request.headers.get("x-managed-session")?.trim();
+    const managedSession = managedToken
+      ? await authorizeManagedSession({
+        token: managedToken,
+        apiKey,
+        resourceType: "database",
+        resourceId: value.databaseId,
+      })
+      : null;
+    if (!managedSession) {
+      await requireDatabaseAccess({ userId: apiKey.ownerUserId, role: apiKey.ownerRole }, value.databaseId, "executeSql");
+    }
+    const remoteAddress = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || undefined;
     const result = await executeDatabaseQuery({
       databaseId: value.databaseId, apiKeyId: apiKey.id, sql: value.sql, reason: value.reason,
       actorUserId: apiKey.ownerUserId,
-      timeoutSeconds: timeout, remoteAddress: request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || undefined,
+      managedSessionId: managedSession?.id,
+      bypassPolicy: Boolean(managedSession),
+      timeoutSeconds: timeout,
+      remoteAddress,
+      source: managedSession ? "ai-managed" : "api",
     });
+    if (managedSession) {
+      await recordManagedSessionEvent({
+        sessionId: managedSession.id,
+        eventType: "database-sql",
+        resourceType: "database",
+        resourceId: value.databaseId,
+        resourceName: managedSession.resourceName,
+        action: value.sql,
+        status: result.status,
+        executionId: result.executionId,
+        requestPayload: { reason: value.reason, timeoutSeconds: timeout },
+        resultMetadata: {
+          statementType: result.statementType,
+          rowCount: result.rowCount,
+          truncated: result.truncated,
+          durationMs: result.durationMs,
+          policyDecision: result.policyDecision,
+          policyReason: result.policyReason,
+          error: result.error,
+        },
+        remoteAddress,
+      });
+    }
     return NextResponse.json(result, { status: result.status === "rejected" ? 403 : result.status === "failed" ? 502 : 200 });
   } catch (error) {
     const message = error instanceof Error ? error.message : "数据库查询失败";

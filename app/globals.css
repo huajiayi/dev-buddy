@@ -423,6 +423,30 @@ body {
   background: #f5f7fa;
 }
 
+.managed-active-alert {
+  margin-bottom: 20px;
+  border: 1px solid #ff4d4f;
+}
+
+.managed-stats {
+  margin-bottom: 20px;
+}
+
+.managed-session-form {
+  margin-top: 20px;
+}
+
+.managed-resource-options {
+  display: grid;
+  gap: 10px;
+}
+
+.managed-summary {
+  margin: 0;
+  white-space: pre-wrap;
+  font-family: inherit;
+}
+
 .page-loading-state {
   min-height: 320px;
   padding: 24px;

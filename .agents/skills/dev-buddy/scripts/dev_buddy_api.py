@@ -59,7 +59,12 @@ def configuration() -> tuple[str, str]:
     return base_url, api_key
 
 
-def request_json(path: str, method: str = "GET", payload: dict[str, Any] | None = None) -> Any:
+def request_json(
+    path: str,
+    method: str = "GET",
+    payload: dict[str, Any] | None = None,
+    managed: bool = False,
+) -> Any:
     base_url, api_key = configuration()
     body = json.dumps(payload).encode("utf-8") if payload is not None else None
     headers = {
@@ -69,6 +74,11 @@ def request_json(path: str, method: str = "GET", payload: dict[str, Any] | None 
     }
     if body is not None:
         headers["Content-Type"] = "application/json"
+    if managed:
+        managed_token = os.environ.get("DEV_BUDDY_MANAGED_SESSION_TOKEN", "").strip()
+        if not managed_token:
+            raise ValueError("DEV_BUDDY_MANAGED_SESSION_TOKEN is required with --managed")
+        headers["X-Managed-Session"] = managed_token
     request = Request(f"{base_url}{path}", data=body, headers=headers, method=method)
     try:
         with urlopen(request, timeout=70) as response:
@@ -116,12 +126,14 @@ def build_parser() -> argparse.ArgumentParser:
     subparsers.add_parser("databases", help="List enabled managed databases")
     subparsers.add_parser("db-policies", help="List database SQL policies")
     subparsers.add_parser("users", help="List users (administrator API Key required)")
+    subparsers.add_parser("managed-sessions", help="List the current user's AI managed sessions")
 
     execute = subparsers.add_parser("exec", help="Execute one filtered diagnostic command")
     execute.add_argument("--server-id", required=True)
     execute.add_argument("--command", required=True)
     execute.add_argument("--reason", required=True)
     execute.add_argument("--timeout", type=int, default=30, choices=range(1, 61), metavar="1..60")
+    execute.add_argument("--managed", action="store_true", help="Use DEV_BUDDY_MANAGED_SESSION_TOKEN")
 
     policy = subparsers.add_parser("policy-create", help="Create one command policy")
     policy.add_argument("--name", required=True)
@@ -135,6 +147,22 @@ def build_parser() -> argparse.ArgumentParser:
     db_query.add_argument("--sql", required=True)
     db_query.add_argument("--reason", required=True)
     db_query.add_argument("--timeout", type=int, default=15, choices=range(1, 31), metavar="1..30")
+    db_query.add_argument("--managed", action="store_true", help="Use DEV_BUDDY_MANAGED_SESSION_TOKEN")
+
+    managed_start = subparsers.add_parser("managed-session-start", help="Start a temporary AI managed session")
+    managed_start.add_argument("--objective", required=True)
+    managed_start.add_argument("--reason", required=True)
+    managed_start.add_argument("--planned-actions", default="")
+    managed_start.add_argument("--duration", type=int, default=30, choices=range(15, 121), metavar="15..120")
+    managed_start.add_argument("--server", action="append", default=[], metavar="SERVER_ID")
+    managed_start.add_argument("--database", action="append", default=[], metavar="DATABASE_ID")
+
+    managed_end = subparsers.add_parser("managed-session-end", help="End a managed session and generate its summary")
+    managed_end.add_argument("--session-id", required=True)
+    managed_end.add_argument("--reason", default="AI completed the requested work")
+
+    managed_events = subparsers.add_parser("managed-session-events", help="Read one managed session's audit events")
+    managed_events.add_argument("--session-id", required=True)
 
     db_policy = subparsers.add_parser("db-policy-create", help="Create one database SQL policy")
     db_policy.add_argument("--name", required=True)
@@ -191,6 +219,8 @@ def main() -> int:
             result = request_json("/api/v1/database-policies")
         elif args.operation == "users":
             result = request_json("/api/v1/users")
+        elif args.operation == "managed-sessions":
+            result = request_json("/api/v1/managed-sessions")
         elif args.operation == "exec":
             result = request_json(
                 "/api/v1/executions",
@@ -201,6 +231,7 @@ def main() -> int:
                     "reason": args.reason,
                     "timeoutSeconds": args.timeout,
                 },
+                managed=args.managed,
             )
         elif args.operation == "policy-create":
             result = request_json(
@@ -224,7 +255,31 @@ def main() -> int:
                     "reason": args.reason,
                     "timeoutSeconds": args.timeout,
                 },
+                managed=args.managed,
             )
+        elif args.operation == "managed-session-start":
+            if not args.server and not args.database:
+                raise ValueError("managed-session-start requires at least one --server or --database")
+            result = request_json(
+                "/api/v1/managed-sessions",
+                method="POST",
+                payload={
+                    "objective": args.objective,
+                    "reason": args.reason,
+                    "plannedActions": args.planned_actions,
+                    "durationMinutes": args.duration,
+                    "serverIds": list(dict.fromkeys(args.server)),
+                    "databaseIds": list(dict.fromkeys(args.database)),
+                },
+            )
+        elif args.operation == "managed-session-end":
+            result = request_json(
+                f"/api/v1/managed-sessions/{args.session_id}/end",
+                method="POST",
+                payload={"reason": args.reason},
+            )
+        elif args.operation == "managed-session-events":
+            result = request_json(f"/api/v1/managed-sessions/{args.session_id}")
         elif args.operation == "db-policy-create":
             result = request_json(
                 "/api/v1/database-policies",

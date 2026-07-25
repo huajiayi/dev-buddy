@@ -2,10 +2,10 @@
 
 import { createContext, type ReactNode, useContext, useEffect, useState, useTransition } from "react";
 import {
-  AppstoreOutlined, BellOutlined, CloudServerOutlined, CodeOutlined, DatabaseOutlined,
+  AppstoreOutlined, AuditOutlined, BellOutlined, CloudServerOutlined, CodeOutlined, DatabaseOutlined,
   DesktopOutlined, FileSearchOutlined, HistoryOutlined, KeyOutlined, LineChartOutlined,
   LogoutOutlined, MenuFoldOutlined, MenuUnfoldOutlined, SafetyCertificateOutlined,
-  SettingOutlined, TeamOutlined,
+  RobotOutlined, SettingOutlined, TeamOutlined,
 } from "@ant-design/icons";
 import { App, Avatar, Button, ConfigProvider, Dropdown, Flex, Layout, Menu, Result, Skeleton, Space, Typography, theme } from "antd";
 import type { MenuProps } from "antd";
@@ -50,7 +50,7 @@ function Shell({ children, user }: { children: ReactNode; user: AppUser }) {
     ? "/databases"
     : controlledTerminal || sshTerminal
       ? "/servers"
-      : ["/database-executions", "/database-policies", "/databases", "/terminal-sessions", "/servers", "/command-policies", "/executions", "/system-settings", "/api-keys", "/aliyun/resources", "/aliyun/costs", "/aliyun/risks"].find((key) => pathname.startsWith(key))
+      : ["/managed-session-audit", "/managed-sessions", "/database-executions", "/database-policies", "/databases", "/terminal-sessions", "/servers", "/command-policies", "/executions", "/system-settings", "/api-keys", "/aliyun/resources", "/aliyun/costs", "/aliyun/risks"].find((key) => pathname.startsWith(key))
         ?? (pathname.startsWith("/aliyun") ? "/aliyun" : "/");
   const accountItems: MenuProps["items"] = [
     { key: "identity", label: <div className="account-menu-identity"><Text strong>{user.displayName}</Text><Text type="secondary">{roleLabels[user.role]}</Text></div>, disabled: true },
@@ -60,6 +60,15 @@ function Shell({ children, user }: { children: ReactNode; user: AppUser }) {
   const menuLink = (href: string, label: string) => <Link href={href}>{label}</Link>;
 
   const menuItems: MenuProps["items"] = [
+    {
+      key: "ai-collaboration", icon: <RobotOutlined />, label: "AI 协作",
+      children: [
+        { key: "/managed-sessions", icon: <RobotOutlined />, label: menuLink("/managed-sessions", "AI 全托管") },
+        ...(user.role === "admin" ? [
+          { key: "/managed-session-audit", icon: <AuditOutlined />, label: menuLink("/managed-session-audit", "托管审计") },
+        ] : []),
+      ],
+    },
     {
       key: "server-operations", icon: <DesktopOutlined />, label: "服务器运维",
       children: [
@@ -107,7 +116,7 @@ function Shell({ children, user }: { children: ReactNode; user: AppUser }) {
         theme="dark"
         mode="inline"
         selectedKeys={[selectedKey]}
-        defaultOpenKeys={["server-operations", "database-management", "aliyun-management", "system-management"]}
+        defaultOpenKeys={["ai-collaboration", "server-operations", "database-management", "aliyun-management", "system-management"]}
         onClick={({ key, domEvent }) => {
           if (key.startsWith("/") && !(domEvent.target as HTMLElement).closest("a")) router.push(key);
         }}
