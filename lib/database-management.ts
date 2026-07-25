@@ -8,6 +8,7 @@ import { ensureSchema, getPool } from "./db";
 import { analyzeSql, type DatabaseEngine, type SqlAnalysis } from "./database-query-policy";
 import { decryptSecret, encryptSecret } from "./secret";
 import { getServerWithCredential } from "./server-management";
+import { createPgSshStream } from "./pg-ssh-stream";
 
 export type ConnectionMode = "direct" | "sshTunnel";
 export type TlsMode = "disable" | "require" | "verify-full";
@@ -243,9 +244,11 @@ async function openTunnel(row: DatabaseRow): Promise<Tunnel> {
   return new Promise((resolve, reject) => {
     const client = new SshClient();
     let settled = false;
+    const timer = setTimeout(() => fail(new Error("SSH 隧道建立超时")), 15000);
     const fail = (error: Error) => {
       if (settled) return;
       settled = true;
+      clearTimeout(timer);
       client.end();
       reject(error);
     };
@@ -254,6 +257,7 @@ async function openTunnel(row: DatabaseRow): Promise<Tunnel> {
       client.forwardOut("127.0.0.1", 0, row.host, row.port, (error, stream) => {
         if (error) return fail(error);
         settled = true;
+        clearTimeout(timer);
         client.removeListener("error", fail);
         client.on("error", () => undefined);
         resolve({ stream, close: () => { stream.destroy(); client.end(); } });
@@ -322,15 +326,19 @@ async function queryPostgres(
     host: tunnel.stream ? undefined : row.host, port: row.port, user: row.username,
     password: credential.password, database: row.database_name, ssl: sslOptions(row, credential),
     connectionTimeoutMillis: Math.min(timeoutMs, 15000),
-    ...(tunnel.stream ? { stream: () => tunnel.stream } : {}),
+    ...(tunnel.stream ? { stream: createPgSshStream(tunnel.stream) } : {}),
   });
   const rows: Record<string, unknown>[] = [];
   const bytes = { value: 2 };
   let truncated = false;
   let cursor: Cursor | undefined;
+  let connected = false;
+  let transactionOpen = false;
   try {
     await client.connect();
+    connected = true;
     await client.query(readOnly ? "BEGIN READ ONLY" : "BEGIN");
+    transactionOpen = true;
     await client.query(`SET LOCAL statement_timeout = ${timeoutMs}`);
     cursor = client.query(new Cursor(sql, options.values || []));
     let finished = false;
@@ -350,11 +358,14 @@ async function queryPostgres(
     await new Promise<void>((resolve) => cursor!.close(() => resolve()));
     cursor = undefined;
     await client.query(readOnly ? "ROLLBACK" : "COMMIT");
+    transactionOpen = false;
     return { columns: fields.length ? fields : Object.keys(rows[0] || {}), rows, rowCount: rows.length, truncated };
   } finally {
     try { if (cursor) await new Promise<void>((resolve) => cursor!.close(() => resolve())); } catch {}
-    try { await client.query("ROLLBACK"); } catch {}
-    await client.end().catch(() => undefined);
+    if (connected && transactionOpen) {
+      try { await client.query("ROLLBACK"); } catch {}
+    }
+    if (connected) await client.end().catch(() => undefined);
   }
 }
 
@@ -416,6 +427,20 @@ function sanitizedError(error: unknown) {
     .slice(0, 4096);
 }
 
+async function withTimeout<T>(operation: Promise<T>, timeoutMs: number, message: string) {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      operation,
+      new Promise<T>((_, reject) => {
+        timer = setTimeout(() => reject(new Error(message)), timeoutMs);
+      }),
+    ]);
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+}
+
 async function runQuery(
   row: DatabaseRow,
   sql: string,
@@ -424,13 +449,16 @@ async function runQuery(
   options: QueryOptions = {},
 ) {
   const credential = parseCredential(row.credential_encrypted);
-  const tunnel = await openTunnel(row);
+  let tunnel: Tunnel | undefined;
   try {
-    return row.engine === "postgresql"
-      ? await queryPostgres(row, credential, sql, timeoutSeconds * 1000, tunnel, readOnly, options)
-      : await queryMysql(row, credential, sql, timeoutSeconds * 1000, tunnel, readOnly, options);
+    return await withTimeout((async () => {
+      tunnel = await openTunnel(row);
+      return row.engine === "postgresql"
+        ? queryPostgres(row, credential, sql, timeoutSeconds * 1000, tunnel, readOnly, options)
+        : queryMysql(row, credential, sql, timeoutSeconds * 1000, tunnel, readOnly, options);
+    })(), timeoutSeconds * 1000 + 20_000, "数据库连接或查询超时");
   } finally {
-    tunnel.close();
+    tunnel?.close();
   }
 }
 
