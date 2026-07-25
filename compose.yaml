@@ -1,0 +1,30 @@
+services:
+  dev-buddy:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: dev-buddy:latest
+    container_name: dev-buddy
+    restart: unless-stopped
+    init: true
+    env_file:
+      - .env
+    environment:
+      NODE_ENV: production
+      DEV_BUDDY_HOST: 0.0.0.0
+      PORT: 3000
+    ports:
+      - "${DEV_BUDDY_PORT:-3000}:3000"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "fetch('http://127.0.0.1:3000/login').then((response) => { if (!response.ok) process.exit(1) }).catch(() => process.exit(1))"
+      interval: 30s
+      timeout: 5s
+      start_period: 30s
+      retries: 3
+    stop_grace_period: 20s
