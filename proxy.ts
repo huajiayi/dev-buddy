@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { publicRequestOrigin } from "@/lib/public-origin";
 const publicPaths = ["/login", "/setup", "/auth/lark"];
 const SESSION_COOKIE = "dev_buddy_session";
 
@@ -7,7 +8,7 @@ export function proxy(request: NextRequest) {
   if (publicPaths.some((path) => pathname === path || pathname.startsWith(`${path}/`))) return NextResponse.next();
   if (pathname.startsWith("/api/v1/")) return NextResponse.next();
   if (request.cookies.has(SESSION_COOKIE)) return NextResponse.next();
-  const login = new URL("/login", request.url);
+  const login = new URL("/login", publicRequestOrigin(request));
   login.searchParams.set("next", `${pathname}${search}`);
   return NextResponse.redirect(login);
 }

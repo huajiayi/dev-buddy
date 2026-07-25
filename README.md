@@ -53,6 +53,12 @@ docker compose logs -f dev-buddy
 DEV_BUDDY_PORT=8080
 ```
 
+使用域名和反向代理时，请设置应用的公开地址，避免登录回调使用容器内部地址：
+
+```dotenv
+APP_URL=https://你的域名
+```
+
 ### 3. 更新版本
 
 ```bash
