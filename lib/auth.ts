@@ -1,6 +1,7 @@
 import "server-only";
 
 import { createHash, randomBytes, randomUUID, scrypt as nodeScrypt, timingSafeEqual } from "node:crypto";
+import { cache } from "react";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { ensureSchema, getPool } from "./db";
@@ -183,7 +184,7 @@ export async function destroySession() {
   store.delete(SESSION_COOKIE);
 }
 
-export async function getCurrentUser() {
+export const getCurrentUser = cache(async function getCurrentUser() {
   const token = (await cookies()).get(SESSION_COOKIE)?.value;
   if (!token) return null;
   await ensureSchema();
@@ -195,7 +196,7 @@ export async function getCurrentUser() {
     [tokenHash(token)],
   );
   return result.rows[0] ? toUser(result.rows[0]) : null;
-}
+});
 
 export async function requireUser() {
   const user = await getCurrentUser();

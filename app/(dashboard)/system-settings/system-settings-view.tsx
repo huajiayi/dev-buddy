@@ -3,7 +3,7 @@
 import { KeyOutlined } from "@ant-design/icons";
 import { App, Breadcrumb, Button, Card, Form, Input, Popconfirm, Space, Tag, Typography } from "antd";
 import { useTransition } from "react";
-import NoticePopover from "../notice-popover";
+import NoticePopover from "@/app/notice-popover";
 import { clearDefaultUserPasswordAction, saveDefaultUserPasswordAction } from "./actions";
 
 const { Title, Text } = Typography;

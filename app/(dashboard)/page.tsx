@@ -1,6 +1,5 @@
 import { redirect } from "next/navigation";
-import AdminDashboard from "./admin-dashboard";
-import AdminShell from "./admin-shell";
+import AdminDashboard from "@/app/admin-dashboard";
 import { listUsers, requirePageUser } from "@/lib/auth";
 import { listManagedServers } from "@/lib/server-management";
 import { listManagedDatabases } from "@/lib/database-management";
@@ -19,16 +18,12 @@ export default async function Home() {
     listResourceGrants(),
     hasDefaultUserPassword(),
   ]);
-  return (
-    <AdminShell currentUser={currentUser}>
-      <AdminDashboard
-        users={users}
-        currentUserId={currentUser.id}
-        servers={servers}
-        databases={databases}
-        hasDefaultUserPassword={defaultPasswordConfigured}
-        {...grants}
-      />
-    </AdminShell>
-  );
+  return <AdminDashboard
+    users={users}
+    currentUserId={currentUser.id}
+    servers={servers}
+    databases={databases}
+    hasDefaultUserPassword={defaultPasswordConfigured}
+    {...grants}
+  />;
 }

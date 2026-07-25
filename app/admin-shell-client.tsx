@@ -11,6 +11,7 @@ import {
 import { App, Avatar, Button, ConfigProvider, Dropdown, Flex, Layout, Menu, Space, Typography, theme } from "antd";
 import type { MenuProps } from "antd";
 import zhCN from "antd/locale/zh_CN";
+import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import type { AppUser, UserRole } from "@/lib/auth";
 import { logoutAction } from "./login/actions";
@@ -35,44 +36,45 @@ function Shell({ children, user }: { children: ReactNode; user: AppUser }) {
     { type: "divider" },
     { key: "logout", label: loggingOut ? "正在退出…" : "退出登录", icon: <LogoutOutlined />, danger: true },
   ];
+  const menuLink = (href: string, label: string) => <Link href={href}>{label}</Link>;
 
   const menuItems: MenuProps["items"] = [
     {
       key: "server-operations", icon: <DesktopOutlined />, label: "服务器运维",
       children: [
-        { key: "/servers", icon: <CloudServerOutlined />, label: "服务器列表" },
+        { key: "/servers", icon: <CloudServerOutlined />, label: menuLink("/servers", "服务器列表") },
         ...(user.role === "admin" ? [
-          { key: "/command-policies", icon: <CodeOutlined />, label: "命令策略" },
-          { key: "/executions", icon: <FileSearchOutlined />, label: "执行审计" },
-          { key: "/terminal-sessions", icon: <HistoryOutlined />, label: "SSH 会话审计" },
+          { key: "/command-policies", icon: <CodeOutlined />, label: menuLink("/command-policies", "命令策略") },
+          { key: "/executions", icon: <FileSearchOutlined />, label: menuLink("/executions", "执行审计") },
+          { key: "/terminal-sessions", icon: <HistoryOutlined />, label: menuLink("/terminal-sessions", "SSH 会话审计") },
         ] : []),
       ],
     },
     {
       key: "database-management", icon: <DatabaseOutlined />, label: "数据库管理",
       children: [
-        { key: "/databases", icon: <DatabaseOutlined />, label: "数据库列表" },
+        { key: "/databases", icon: <DatabaseOutlined />, label: menuLink("/databases", "数据库列表") },
         ...(user.role === "admin" ? [
-          { key: "/database-policies", icon: <CodeOutlined />, label: "SQL 执行策略" },
-          { key: "/database-executions", icon: <FileSearchOutlined />, label: "SQL 执行审计" },
+          { key: "/database-policies", icon: <CodeOutlined />, label: menuLink("/database-policies", "SQL 执行策略") },
+          { key: "/database-executions", icon: <FileSearchOutlined />, label: menuLink("/database-executions", "SQL 执行审计") },
         ] : []),
       ],
     },
     ...(user.role === "admin" ? [{
       key: "aliyun-management", icon: <CloudServerOutlined />, label: "阿里云管理",
       children: [
-        { key: "/aliyun", icon: <KeyOutlined />, label: "账号管理" },
-        { key: "/aliyun/resources", icon: <AppstoreOutlined />, label: "全部资源" },
-        { key: "/aliyun/costs", icon: <LineChartOutlined />, label: "费用分析" },
-        { key: "/aliyun/risks", icon: <SafetyCertificateOutlined />, label: "风险提醒" },
+        { key: "/aliyun", icon: <KeyOutlined />, label: menuLink("/aliyun", "账号管理") },
+        { key: "/aliyun/resources", icon: <AppstoreOutlined />, label: menuLink("/aliyun/resources", "全部资源") },
+        { key: "/aliyun/costs", icon: <LineChartOutlined />, label: menuLink("/aliyun/costs", "费用分析") },
+        { key: "/aliyun/risks", icon: <SafetyCertificateOutlined />, label: menuLink("/aliyun/risks", "风险提醒") },
       ],
     }] : []),
     {
       key: "system-management", icon: <SettingOutlined />, label: "系统管理",
       children: [
-        ...(user.role === "admin" ? [{ key: "/", icon: <TeamOutlined />, label: "用户管理" }] : []),
-        ...(user.role === "admin" ? [{ key: "/system-settings", icon: <SettingOutlined />, label: "系统设置" }] : []),
-        { key: "/api-keys", icon: <KeyOutlined />, label: "API Key" },
+        ...(user.role === "admin" ? [{ key: "/", icon: <TeamOutlined />, label: menuLink("/", "用户管理") }] : []),
+        ...(user.role === "admin" ? [{ key: "/system-settings", icon: <SettingOutlined />, label: menuLink("/system-settings", "系统设置") }] : []),
+        { key: "/api-keys", icon: <KeyOutlined />, label: menuLink("/api-keys", "API Key") },
       ],
     },
   ];
@@ -80,7 +82,16 @@ function Shell({ children, user }: { children: ReactNode; user: AppUser }) {
   return <Layout className="admin-shell">
     <Sider trigger={null} collapsible collapsed={collapsed} breakpoint="lg" collapsedWidth={72} width={232} onBreakpoint={setCollapsed} theme="dark" className="admin-sider">
       <div className="admin-brand"><div className="brand-mark">D</div>{!collapsed && <span>Dev Buddy</span>}</div>
-      <Menu theme="dark" mode="inline" selectedKeys={[selectedKey]} defaultOpenKeys={["server-operations", "database-management", "aliyun-management", "system-management"]} onClick={({ key }) => key.startsWith("/") && router.push(key)} items={menuItems} />
+      <Menu
+        theme="dark"
+        mode="inline"
+        selectedKeys={[selectedKey]}
+        defaultOpenKeys={["server-operations", "database-management", "aliyun-management", "system-management"]}
+        onClick={({ key, domEvent }) => {
+          if (key.startsWith("/") && !(domEvent.target as HTMLElement).closest("a")) router.push(key);
+        }}
+        items={menuItems}
+      />
     </Sider>
     <Layout>
       <Header className="admin-header">
