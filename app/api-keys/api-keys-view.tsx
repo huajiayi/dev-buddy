@@ -5,6 +5,7 @@ import { App, Alert, Breadcrumb, Button, Card, Input, Modal, Popconfirm, Switch,
 import type { TableColumnsType } from "antd";
 import { useState, useTransition } from "react";
 import type { ProjectApiKey } from "@/lib/server-management";
+import { formatDateTime } from "@/lib/date-format";
 import { createApiKey, deleteApiKey, toggleApiKey } from "./actions";
 import NoticePopover from "@/app/notice-popover";
 
@@ -19,8 +20,8 @@ export default function ApiKeysView({ apiKeys }: { apiKeys: ProjectApiKey[] }) {
   const columns: TableColumnsType<ProjectApiKey> = [
     { title: "名称", dataIndex: "name", render: (value: string, item) => <div><Text strong>{value}</Text><div><Text code>{item.prefix}••••••••</Text></div></div> },
     { title: "启用", dataIndex: "enabled", width: 100, render: (enabled: boolean, item) => <Switch checked={enabled} checkedChildren="启用" unCheckedChildren="禁用" onChange={(checked) => startTransition(async () => { const result = await toggleApiKey(item.id, checked); if (result.ok) message.success(checked ? "API Key 已启用" : "API Key 已禁用"); else message.error(result.error); })} /> },
-    { title: "最近使用", dataIndex: "lastUsedAt", width: 180, render: (value: string | null) => value ? new Date(value).toLocaleString("zh-CN") : "从未使用" },
-    { title: "创建时间", dataIndex: "createdAt", width: 180, render: (value: string) => new Date(value).toLocaleString("zh-CN") },
+    { title: "最近使用", dataIndex: "lastUsedAt", width: 180, render: (value: string | null) => value ? formatDateTime(value) : "从未使用" },
+    { title: "创建时间", dataIndex: "createdAt", width: 180, render: (value: string) => formatDateTime(value) },
     { title: "操作", width: 100, render: (_, item) => <Popconfirm title="删除后无法恢复，确认继续？" description="删除不会移除已有执行审计记录" onConfirm={() => startTransition(async () => { const result = await deleteApiKey(item.id); if (result.ok) message.success("API Key 已删除"); else message.error(result.error); })}><Button danger type="text" icon={<DeleteOutlined />}>删除</Button></Popconfirm> },
   ];
 

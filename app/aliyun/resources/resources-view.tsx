@@ -5,6 +5,7 @@ import { Alert, Card, Empty, Input, Space, Statistic, Table, Tag, Typography } f
 import type { TableColumnsType } from "antd";
 import { useMemo, useState } from "react";
 import type { AccountResources, CloudResource } from "@/lib/aliyun-insights";
+import { formatDateTime } from "@/lib/date-format";
 import InsightHeader from "../insight-header";
 
 const { Text } = Typography;
@@ -27,7 +28,7 @@ export default function ResourcesView({ data }: { data: AccountResources[] }) {
     { title: "地域 / 可用区", width: 170, render: (_, item) => <div>{item.region}<div><Text type="secondary">{item.zone}</Text></div></div> },
     { title: "IP", width: 160, render: (_, item) => item.ips.length ? item.ips.join("、") : "-" },
     { title: "标签", width: 200, render: (_, item) => item.tags.length ? <Space size={[4, 4]} wrap>{item.tags.slice(0, 3).map((tag) => <Tag key={`${tag.key}-${tag.value}`}>{tag.key}:{tag.value}</Tag>)}</Space> : "-" },
-    { title: "到期时间", dataIndex: "expiresAt", width: 170, render: (value: string) => value ? new Date(value).toLocaleString("zh-CN") : "-" },
+    { title: "到期时间", dataIndex: "expiresAt", width: 170, render: (value: string) => value ? formatDateTime(value) : "-" },
   ];
 
   return <>

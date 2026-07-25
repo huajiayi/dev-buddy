@@ -4,6 +4,7 @@ import { Breadcrumb, Button, Card, Descriptions, Modal, Table, Tag, Typography }
 import type { TableColumnsType } from "antd";
 import { useState } from "react";
 import type { DatabaseQueryExecution } from "@/lib/database-management";
+import { formatDateTime } from "@/lib/date-format";
 
 const { Title, Text, Paragraph } = Typography;
 export default function DatabaseExecutionsView({ executions }: { executions: DatabaseQueryExecution[] }) {
@@ -18,7 +19,7 @@ export default function DatabaseExecutionsView({ executions }: { executions: Dat
     { title: "行数", dataIndex: "rowCount", width: 80 },
     { title: "截断", dataIndex: "truncated", width: 70, render: (value) => value ? "是" : "否" },
     { title: "耗时", dataIndex: "durationMs", width: 100, render: (value) => value == null ? "-" : `${value} ms` },
-    { title: "时间", dataIndex: "createdAt", width: 180, render: (value) => new Date(value).toLocaleString("zh-CN") },
+    { title: "时间", dataIndex: "createdAt", width: 180, render: (value) => formatDateTime(value) },
     { title: "操作", width: 80, render: (_, item) => <Button type="link" onClick={() => setSelected(item)}>详情</Button> },
   ];
   return <>

@@ -8,6 +8,7 @@ import type { AppUser, UserRole } from "@/lib/auth";
 import type { ManagedServer } from "@/lib/server-management";
 import type { ManagedDatabase } from "@/lib/database-management";
 import type { DatabaseGrant, ServerGrant } from "@/lib/authorization";
+import { formatDateTime } from "@/lib/date-format";
 import { createUserAction, deleteUserAction, resetPasswordAction, saveUserResourceGrantsAction, toggleUserAction, updateUserAction, type UserFormInput } from "./users/actions";
 
 const { Title, Text } = Typography;
@@ -78,7 +79,7 @@ export default function UserManagement({
     { title: "登录方式", width: 150, render: (_, user) => <Space size={4} wrap>{user.hasPassword && <Tag>密码</Tag>}{user.larkConnected && <Tag color="cyan">Lark</Tag>}{!user.hasPassword && !user.larkConnected && <Tag>未配置</Tag>}</Space> },
     { title: "角色", dataIndex: "role", width: 110, render: (role: UserRole) => <Tag color={roleMeta[role].color}>{roleMeta[role].label}</Tag> },
     { title: "状态", dataIndex: "enabled", width: 105, render: (enabled: boolean, user) => <Switch checked={enabled} checkedChildren="启用" unCheckedChildren="禁用" disabled={user.id === currentUserId || pending} onChange={(checked) => startTransition(async () => { const result = await toggleUserAction(user.id, checked); if (result.ok) message.success(checked ? "用户已启用" : "用户已禁用"); else message.error(result.error); })} /> },
-    { title: "最近登录", dataIndex: "lastLoginAt", width: 180, render: (value: string | null) => value ? new Date(value).toLocaleString("zh-CN") : "从未登录" },
+    { title: "最近登录", dataIndex: "lastLoginAt", width: 180, render: (value: string | null) => value ? formatDateTime(value) : "从未登录" },
     { title: "操作", fixed: "right", width: 280, render: (_, user) => <Space size={2}><Button type="text" size="small" icon={<EditOutlined />} onClick={() => openEdit(user)}>编辑</Button><Button type="text" size="small" icon={<SafetyCertificateOutlined />} disabled={user.role === "admin"} onClick={() => openPermissions(user)}>资源权限</Button><Button type="text" size="small" icon={<KeyOutlined />} disabled={user.id === currentUserId} onClick={() => setPasswordUser(user)}>重置密码</Button><Popconfirm title="确定删除这个用户吗？" description="用户的登录会话、API Key 和资源授权都会失效" okText="删除" cancelText="取消" disabled={user.id === currentUserId} onConfirm={() => startTransition(async () => { const result = await deleteUserAction(user.id); if (result.ok) message.success("用户已删除"); else message.error(result.error); })}><Button type="text" size="small" danger disabled={user.id === currentUserId} icon={<DeleteOutlined />} aria-label="删除用户" /></Popconfirm></Space> },
   ];
 

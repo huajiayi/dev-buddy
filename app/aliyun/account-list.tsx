@@ -6,6 +6,7 @@ import { App, Avatar, Breadcrumb, Button, Form, Input, Modal, Popconfirm, Select
 import type { TableColumnsType } from "antd";
 import { useRouter } from "next/navigation";
 import type { AliyunAccount } from "@/lib/aliyun-accounts";
+import { formatDateTime } from "@/lib/date-format";
 import { createAliyunAccount, deleteAliyunAccount, editAliyunAccount } from "./actions";
 
 const { Title, Text } = Typography;
@@ -23,7 +24,7 @@ export default function AccountList({ accounts, loadError }: { accounts: AliyunA
     { title: "账号", dataIndex: "name", width: 220, render: (_, record) => <Space size={12}><Avatar shape="square" className="aliyun-avatar" icon={<CloudServerOutlined />} /><div><Text strong>{record.name}</Text><div><Text type="secondary" className="user-subtext">{record.accessKeyId.slice(0, 6)}****{record.accessKeyId.slice(-4)}</Text></div></div></Space> },
     { title: "站点", dataIndex: "site", width: 120, render: (site: AliyunAccount["site"]) => <Tag color={site === "international" ? "purple" : "blue"}>{site === "international" ? "国际站" : "中国站"}</Tag> },
     { title: "资源范围", render: () => <Tag color="processing">自动发现全部可用地域</Tag> },
-    { title: "添加时间", dataIndex: "createdAt", width: 180, render: (value: string) => new Intl.DateTimeFormat("zh-CN", { dateStyle: "medium", timeStyle: "short" }).format(new Date(value)) },
+    { title: "添加时间", dataIndex: "createdAt", width: 180, render: (value: string) => formatDateTime(value) },
     { title: "操作", width: 260, render: (_, record) => <Space><Button type="link" icon={<EyeOutlined />} onClick={() => router.push(`/aliyun/${record.id}`)}>查看详情</Button><Button type="text" icon={<EditOutlined />} onClick={() => { setEditingAccount(record); setOpen(true); }}>编辑</Button><Popconfirm title="确定删除该阿里云账号吗？" description="这只会删除本系统保存的凭据。" okText="删除" cancelText="取消" onConfirm={async () => { const result = await deleteAliyunAccount(record.id); if (result.ok) { message.success("账号已删除"); router.refresh(); } else message.error(result.error); }}><Button type="text" danger icon={<DeleteOutlined />} /></Popconfirm></Space> },
   ];
 

@@ -3,6 +3,7 @@
 import { Breadcrumb, Card, Table, Tag, Typography } from "antd";
 import type { TableColumnsType } from "antd";
 import type { SshTerminalSession } from "@/lib/server-management";
+import { formatDateTime } from "@/lib/date-format";
 
 const { Title, Text } = Typography;
 
@@ -18,7 +19,7 @@ export default function TerminalSessionsView({ sessions }: { sessions: SshTermin
       title: "开始时间",
       dataIndex: "startedAt",
       width: 180,
-      render: (value: string) => new Date(value).toLocaleString("zh-CN"),
+      render: (value: string) => formatDateTime(value),
     },
     {
       title: "服务器",
@@ -47,7 +48,7 @@ export default function TerminalSessionsView({ sessions }: { sessions: SshTermin
       title: "结束时间",
       dataIndex: "endedAt",
       width: 180,
-      render: (value: string | null) => value ? new Date(value).toLocaleString("zh-CN") : "-",
+      render: (value: string | null) => value ? formatDateTime(value) : "-",
     },
     { title: "结束原因", dataIndex: "closeReason", ellipsis: true, render: (value) => value || "-" },
   ];

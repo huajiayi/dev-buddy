@@ -3,13 +3,14 @@
 import { Breadcrumb, Card, Descriptions, Table, Tag, Typography } from "antd";
 import type { TableColumnsType } from "antd";
 import type { CommandExecution } from "@/lib/server-management";
+import { formatDateTime } from "@/lib/date-format";
 
 const { Title, Text, Paragraph } = Typography;
 const statusColors: Record<string, string> = { success: "green", failed: "red", rejected: "orange", running: "blue" };
 
 export default function ExecutionsView({ executions }: { executions: CommandExecution[] }) {
   const columns: TableColumnsType<CommandExecution> = [
-    { title: "时间", dataIndex: "createdAt", width: 180, render: (value: string) => new Date(value).toLocaleString("zh-CN") },
+    { title: "时间", dataIndex: "createdAt", width: 180, render: (value: string) => formatDateTime(value) },
     { title: "服务器", width: 170, render: (_, item) => <div><Text strong>{item.serverName || "已删除服务器"}</Text><div><Text type="secondary" className="user-subtext">{item.serverId}</Text></div></div> },
     { title: "调用身份", width: 180, render: (_, item) => <div><Text>{item.actorUserName || "历史记录"}</Text><div><Text type="secondary">{item.source === "admin-terminal" ? "后台终端" : item.apiKeyName || "已删除 Key"}</Text></div></div> },
     { title: "命令", dataIndex: "command", ellipsis: true, render: (value: string) => <Text code>{value}</Text> },
