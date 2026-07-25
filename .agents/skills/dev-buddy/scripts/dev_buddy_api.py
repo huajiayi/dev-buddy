@@ -21,6 +21,13 @@ if hasattr(sys.stdout, "reconfigure"):
     sys.stderr.reconfigure(encoding="utf-8")
 
 
+class ApiRequestError(Exception):
+    def __init__(self, status: int, detail: dict[str, Any]) -> None:
+        super().__init__(str(detail.get("message") or f"HTTP {status}"))
+        self.status = status
+        self.detail = detail
+
+
 def read_env_file(path: Path) -> dict[str, str]:
     if not path.is_file():
         return {}
@@ -72,11 +79,33 @@ def request_json(path: str, method: str = "GET", payload: dict[str, Any] | None 
             detail = json.loads(raw)
         except json.JSONDecodeError:
             detail = {"message": raw or error.reason}
-        print(json.dumps({"httpStatus": error.code, **detail}, ensure_ascii=False, indent=2), file=sys.stderr)
-        raise SystemExit(1) from error
+        raise ApiRequestError(error.code, detail) from error
     except URLError as error:
         print(json.dumps({"error": "connection_failed", "message": str(error.reason)}, ensure_ascii=False, indent=2), file=sys.stderr)
         raise SystemExit(1) from error
+
+
+def needs_interactive_user_password(error: ApiRequestError) -> bool:
+    message = str(error.detail.get("message") or "")
+    return error.status == 400 and (
+        error.detail.get("error") == "password_required"
+        or ("初始密码" in message and "默认" in message)
+    )
+
+
+def prompt_confirmed_password() -> str:
+    if not sys.stdin.isatty():
+        raise ValueError(
+            "Dev Buddy has no default user password; rerun user-create in an interactive terminal "
+            "to enter one securely, or configure the default user password in System Settings"
+        )
+    password = getpass.getpass("Initial password: ")
+    confirmation = getpass.getpass("Confirm password: ")
+    if password != confirmation:
+        raise ValueError("password confirmation does not match")
+    if not password:
+        raise ValueError("password cannot be empty")
+    return password
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -114,7 +143,10 @@ def build_parser() -> argparse.ArgumentParser:
     db_policy.add_argument("--priority", required=True, type=int, choices=range(1, 101), metavar="1..100")
     db_policy.add_argument("--disabled", action="store_true")
 
-    user_create = subparsers.add_parser("user-create", help="Create a local user and securely prompt for the password")
+    user_create = subparsers.add_parser(
+        "user-create",
+        help="Create a local user with the system default password, prompting only when no default is configured",
+    )
     user_create.add_argument("--username", required=True)
     user_create.add_argument("--display-name", required=True)
     user_create.add_argument("--email")
@@ -207,21 +239,19 @@ def main() -> int:
                 },
             )
         elif args.operation == "user-create":
-            password = getpass.getpass("Initial password: ")
-            confirmation = getpass.getpass("Confirm password: ")
-            if password != confirmation:
-                raise ValueError("password confirmation does not match")
-            result = request_json(
-                "/api/v1/users",
-                method="POST",
-                payload={
-                    "username": args.username,
-                    "displayName": args.display_name,
-                    "email": args.email,
-                    "role": args.role,
-                    "password": password,
-                },
-            )
+            payload = {
+                "username": args.username,
+                "displayName": args.display_name,
+                "email": args.email,
+                "role": args.role,
+            }
+            try:
+                result = request_json("/api/v1/users", method="POST", payload=payload)
+            except ApiRequestError as error:
+                if not needs_interactive_user_password(error):
+                    raise
+                retry_payload = {**payload, "password": prompt_confirmed_password()}
+                result = request_json("/api/v1/users", method="POST", payload=retry_payload)
         elif args.operation == "user-update":
             payload = {
                 key: value for key, value in {
@@ -273,6 +303,12 @@ def main() -> int:
             )
         print(json.dumps(result, ensure_ascii=False, indent=2))
         return 0
+    except ApiRequestError as error:
+        print(
+            json.dumps({"httpStatus": error.status, **error.detail}, ensure_ascii=False, indent=2),
+            file=sys.stderr,
+        )
+        return 1
     except ValueError as error:
         print(json.dumps({"error": "configuration_error", "message": str(error)}, ensure_ascii=False, indent=2), file=sys.stderr)
         return 2

@@ -73,7 +73,7 @@ py -3 <skill-dir>\scripts\dev_buddy_api.py user-update `
   --enable
 ```
 
-Create a local user only in an interactive terminal so the human can enter the initial password without exposing it in arguments or conversation:
+Create a local user without supplying a password. Dev Buddy uses the default user password configured in System Settings:
 
 ```powershell
 py -3 <skill-dir>\scripts\dev_buddy_api.py user-create `
@@ -83,7 +83,7 @@ py -3 <skill-dir>\scripts\dev_buddy_api.py user-create `
   --role operator
 ```
 
-Never request, display, store, or invent a user's password. If no interactive terminal is available, ask the user to create or reset the password in the web interface.
+The script retries with a securely prompted password only when the API explicitly reports that no default user password is configured. Never request, display, store, invent, or pass a user's password as a command argument. If the fallback is needed but no interactive terminal is available, ask the user to configure the default password in System Settings or run the same command in an interactive terminal.
 
 Resource permission updates replace the operator's complete permission set. Before changing it:
 
