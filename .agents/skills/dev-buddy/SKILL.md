@@ -96,13 +96,12 @@ Resource permission updates replace the operator's complete permission set. Befo
 ```powershell
 py -3 <skill-dir>\scripts\dev_buddy_api.py user-permissions-set `
   --user-id <user-id> `
-  --server-command <server-id> `
-  --server-ssh <server-id> `
+  --server <server-id> `
   --database <database-id> `
   --confirm-replace
 ```
 
-Repeat `--server-command`, `--server-ssh`, or `--database` for multiple resources. Omitting a category removes all existing grants in that category. Never grant full SSH when the user requested only controlled command execution.
+Repeat `--server` or `--database` for multiple resources. A server grant allows controlled commands, the SSH terminal, and connection tests for that server. Omitting a category removes all existing grants in that category.
 
 Delete a user only after showing the exact username, role, and impact, then obtaining explicit confirmation:
 

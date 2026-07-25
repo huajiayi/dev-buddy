@@ -38,7 +38,7 @@ export default function UserManagement({
   const [modalOpen, setModalOpen] = useState(false);
   const [passwordUser, setPasswordUser] = useState<AppUser | null>(null);
   const [permissionUser, setPermissionUser] = useState<AppUser | null>(null);
-  const [serverPermissions, setServerPermissions] = useState<Record<string, { command: boolean; ssh: boolean }>>({});
+  const [serverPermissions, setServerPermissions] = useState<Record<string, boolean>>({});
   const [databasePermissions, setDatabasePermissions] = useState<Record<string, boolean>>({});
   const [pending, startTransition] = useTransition();
   const [form] = Form.useForm<UserFormInput & { confirmPassword?: string }>();
@@ -63,10 +63,7 @@ export default function UserManagement({
   function openPermissions(user: AppUser) {
     setPermissionUser(user);
     setServerPermissions(Object.fromEntries(
-      serverGrants.filter((item) => item.userId === user.id).map((item) => [
-        item.serverId,
-        { command: item.canExecuteCommand, ssh: item.canOpenSsh },
-      ]),
+      serverGrants.filter((item) => item.userId === user.id).map((item) => [item.serverId, true]),
     ));
     setDatabasePermissions(Object.fromEntries(
       databaseGrants.filter((item) => item.userId === user.id).map((item) => [item.databaseId, item.canExecuteSql]),
@@ -148,11 +145,7 @@ export default function UserManagement({
       onOk={() => permissionUser && startTransition(async () => {
         const result = await saveUserResourceGrantsAction({
           userId: permissionUser.id,
-          serverGrants: Object.entries(serverPermissions).map(([serverId, value]) => ({
-            serverId,
-            canExecuteCommand: value.command,
-            canOpenSsh: value.ssh,
-          })),
+          serverIds: Object.entries(serverPermissions).filter(([, enabled]) => enabled).map(([id]) => id),
           databaseIds: Object.entries(databasePermissions).filter(([, enabled]) => enabled).map(([id]) => id),
         });
         if (!result.ok) { message.error(result.error); return; }
@@ -161,7 +154,7 @@ export default function UserManagement({
       })}
       destroyOnHidden
     >
-      <Text type="secondary">未勾选的资源默认不可见。完整 SSH 可绕过命令策略，请按需单独授权。</Text>
+      <Text type="secondary">未勾选的资源默认不可见。服务器权限同时允许受控终端、SSH 终端和测试连接。</Text>
       <Title level={5}>服务器</Title>
       <Table
         size="small"
@@ -171,8 +164,7 @@ export default function UserManagement({
         dataSource={servers}
         columns={[
           { title: "服务器", render: (_, item) => `${item.name}（${item.environment}）` },
-          { title: "受控命令", width: 120, render: (_, item) => <Checkbox checked={serverPermissions[item.id]?.command || false} onChange={(event) => setServerPermissions((current) => ({ ...current, [item.id]: { command: event.target.checked, ssh: current[item.id]?.ssh || false } }))} /> },
-          { title: "完整 SSH", width: 120, render: (_, item) => <Checkbox checked={serverPermissions[item.id]?.ssh || false} onChange={(event) => setServerPermissions((current) => ({ ...current, [item.id]: { command: current[item.id]?.command || false, ssh: event.target.checked } }))} /> },
+          { title: "服务器权限", width: 140, render: (_, item) => <Checkbox checked={serverPermissions[item.id] || false} onChange={(event) => setServerPermissions((current) => ({ ...current, [item.id]: event.target.checked }))} /> },
         ]}
         locale={{ emptyText: "暂无服务器" }}
       />

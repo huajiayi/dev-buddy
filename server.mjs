@@ -195,7 +195,7 @@ websocketServer.on("connection", async (websocket, request, ticket) => {
        JOIN app_users u ON u.id=$2 AND u.enabled=TRUE
        LEFT JOIN user_server_grants g ON g.user_id=u.id AND g.server_id=s.id
        WHERE s.id=$1 AND s.enabled=TRUE
-         AND (u.role='admin' OR g.can_open_ssh=TRUE)`,
+         AND (u.role='admin' OR g.server_id IS NOT NULL)`,
       [ticket.targetId, ticket.actorUserId],
     );
     serverRow = result.rows[0];

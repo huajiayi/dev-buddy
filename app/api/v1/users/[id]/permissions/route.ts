@@ -32,7 +32,13 @@ export async function GET(
     }
     const user = await requireTarget(id);
     const grants = await listUserResourceGrants(id);
-    return NextResponse.json({ data: { user, ...grants } });
+    return NextResponse.json({
+      data: {
+        user,
+        serverIds: grants.serverGrants.map((item) => item.serverId),
+        databaseIds: grants.databaseGrants.map((item) => item.databaseId),
+      },
+    });
   } catch (error) {
     const message = error instanceof Error ? error.message : "资源权限读取失败";
     return authError(error) || NextResponse.json(
@@ -60,23 +66,15 @@ export async function PUT(
       );
     }
     const body = await request.json() as Record<string, unknown>;
-    if (!Array.isArray(body.serverGrants) || !Array.isArray(body.databaseIds)) {
+    if (!Array.isArray(body.serverIds) || !Array.isArray(body.databaseIds)) {
       return NextResponse.json(
-        { error: "invalid_request", message: "serverGrants 和 databaseIds 必须是数组" },
+        { error: "invalid_request", message: "serverIds 和 databaseIds 必须是数组" },
         { status: 400 },
       );
     }
-    const serverGrants = body.serverGrants.map((item) => {
-      if (!item || typeof item !== "object") throw new Error("服务器权限格式错误");
-      const value = item as Record<string, unknown>;
-      if (typeof value.serverId !== "string" || !validId(value.serverId)) {
-        throw new Error("服务器 ID 格式错误");
-      }
-      return {
-        serverId: value.serverId,
-        canExecuteCommand: value.canExecuteCommand === true,
-        canOpenSsh: value.canOpenSsh === true,
-      };
+    const serverIds = body.serverIds.map((value) => {
+      if (typeof value !== "string" || !validId(value)) throw new Error("服务器 ID 格式错误");
+      return value;
     });
     const databaseIds = body.databaseIds.map((value) => {
       if (typeof value !== "string" || !validId(value)) throw new Error("数据库 ID 格式错误");
@@ -85,10 +83,17 @@ export async function PUT(
     await replaceUserResourceGrants({
       userId: id,
       grantedBy: apiKey.ownerUserId,
-      serverGrants,
+      serverIds,
       databaseIds,
     });
-    return NextResponse.json({ data: { userId: id, ...await listUserResourceGrants(id) } });
+    const grants = await listUserResourceGrants(id);
+    return NextResponse.json({
+      data: {
+        userId: id,
+        serverIds: grants.serverGrants.map((item) => item.serverId),
+        databaseIds: grants.databaseGrants.map((item) => item.databaseId),
+      },
+    });
   } catch (error) {
     const message = error instanceof Error ? error.message : "资源权限保存失败";
     return authError(error) || NextResponse.json(

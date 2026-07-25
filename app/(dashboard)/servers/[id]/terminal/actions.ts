@@ -13,7 +13,7 @@ export async function executeTerminalCommand(serverIdValue: string, commandValue
 
   try {
     const user = await requireUser();
-    await requireServerAccess(user, serverId, "executeCommand");
+    await requireServerAccess(user, serverId);
     const result = await executeManagedCommand({
       serverId,
       command,

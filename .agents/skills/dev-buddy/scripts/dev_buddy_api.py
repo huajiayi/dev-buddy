@@ -172,8 +172,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     permissions_set = subparsers.add_parser("user-permissions-set", help="Replace one operator's complete resource permission set")
     permissions_set.add_argument("--user-id", required=True)
-    permissions_set.add_argument("--server-command", action="append", default=[], metavar="SERVER_ID")
-    permissions_set.add_argument("--server-ssh", action="append", default=[], metavar="SERVER_ID")
+    permissions_set.add_argument("--server", action="append", default=[], metavar="SERVER_ID")
     permissions_set.add_argument("--database", action="append", default=[], metavar="DATABASE_ID")
     permissions_set.add_argument("--confirm-replace", action="store_true")
     return parser
@@ -283,21 +282,11 @@ def main() -> int:
         else:
             if not args.confirm_replace:
                 raise ValueError("user-permissions-set requires --confirm-replace")
-            server_ids = list(dict.fromkeys([*args.server_command, *args.server_ssh]))
-            command_ids = set(args.server_command)
-            ssh_ids = set(args.server_ssh)
             result = request_json(
                 f"/api/v1/users/{args.user_id}/permissions",
                 method="PUT",
                 payload={
-                    "serverGrants": [
-                        {
-                            "serverId": server_id,
-                            "canExecuteCommand": server_id in command_ids,
-                            "canOpenSsh": server_id in ssh_ids,
-                        }
-                        for server_id in server_ids
-                    ],
+                    "serverIds": list(dict.fromkeys(args.server)),
                     "databaseIds": list(dict.fromkeys(args.database)),
                 },
             )

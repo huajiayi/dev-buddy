@@ -324,6 +324,7 @@ function runSshCommand(server: ManagedServer, credential: Credential, command: s
 export async function testManagedServer(id: string) {
   const target = await getServerWithCredential(id);
   if (!target) throw new Error("服务器不存在");
+  if (!target.server.enabled) throw new Error("服务器已禁用");
   return runSshCommand(target.server, target.credential, "printf dev-buddy-connected", 10);
 }
 

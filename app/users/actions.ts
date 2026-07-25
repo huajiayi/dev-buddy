@@ -80,7 +80,7 @@ export async function deleteUserAction(id: string) {
 
 export async function saveUserResourceGrantsAction(input: {
   userId: string;
-  serverGrants: Array<{ serverId: string; canExecuteCommand: boolean; canOpenSsh: boolean }>;
+  serverIds: string[];
   databaseIds: string[];
 }) {
   try {

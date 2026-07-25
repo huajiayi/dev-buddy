@@ -9,7 +9,7 @@ export const dynamic = "force-dynamic";
 export default async function ServerTerminalPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const user = await requirePageUser();
-  if (!await canAccessServer(user, id, "executeCommand")) notFound();
+  if (!await canAccessServer(user, id)) notFound();
   const server = (await listManagedServers()).find((item) => item.id === id);
   if (!server) notFound();
   return <ServerTerminalView server={server} />;

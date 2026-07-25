@@ -12,7 +12,7 @@ export async function issueSshTerminalTicket(serverIdValue: string) {
   }
   try {
     const user = await requireUser();
-    await requireServerAccess(user, serverId, "openSsh");
+    await requireServerAccess(user, serverId);
     const server = (await listManagedServers()).find((item) => item.id === serverId);
     if (!server) return { ok: false as const, error: "服务器不存在" };
     if (!server.enabled) return { ok: false as const, error: "服务器已禁用" };

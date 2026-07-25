@@ -437,6 +437,7 @@ async function runQuery(
 export async function testManagedDatabase(id: string) {
   const row = await getDatabaseRow(id);
   if (!row) throw new Error("数据库资产不存在");
+  if (!row.enabled) throw new Error("数据库资产已禁用");
   return runQuery(row, "SELECT 1 AS connected", 10, true);
 }
 

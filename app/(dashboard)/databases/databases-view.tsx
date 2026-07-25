@@ -52,7 +52,14 @@ export default function DatabasesView({ databases, servers, isAdmin, grants }: {
     { title: "TLS", dataIndex: "tlsMode", width: 110 },
     { title: "环境", dataIndex: "environment", width: 100 },
     { title: "启用", width: 90, render: (_, item) => isAdmin ? <Switch checked={item.enabled} onChange={(enabled) => startTransition(async () => { const result = await toggleDatabase(item.id, enabled); if (result.ok) message.success("状态已更新"); else message.error(result.error); })} /> : <Tag color={item.enabled ? "success" : "default"}>{item.enabled ? "已启用" : "已禁用"}</Tag> },
-    { title: "操作", width: isAdmin ? 360 : 150, render: (_, item) => <Space>{(isAdmin || grantedIds.has(item.id)) && <Button type="link" icon={<CodeOutlined />} disabled={!item.enabled} onClick={() => router.push(`/databases/${item.id}/workbench`)}>打开工作台</Button>}{isAdmin && <><Button type="link" icon={<ApiOutlined />} loading={testingId === item.id} onClick={() => { setTestingId(item.id); startTransition(async () => { const result = await testDatabaseConnection(item.id); if (result.ok) message.success("数据库连接正常"); else message.error(result.error); setTestingId(undefined); }); }}>测试</Button><Button type="text" icon={<EditOutlined />} onClick={() => edit(item)}>编辑</Button><Popconfirm title="删除资产后审计记录仍会保留，确认删除？" onConfirm={() => startTransition(async () => { const result = await deleteDatabase(item.id); if (result.ok) message.success("已删除"); else message.error(result.error); })}><Button danger type="text" icon={<DeleteOutlined />} /></Popconfirm></>}</Space> },
+    { title: "操作", width: isAdmin ? 390 : 260, render: (_, item) => {
+      const canOperate = isAdmin || grantedIds.has(item.id);
+      return <Space>
+        {canOperate && <Button type="link" icon={<CodeOutlined />} disabled={!item.enabled} onClick={() => router.push(`/databases/${item.id}/workbench`)}>打开工作台</Button>}
+        {canOperate && <Button type="link" icon={<ApiOutlined />} disabled={!item.enabled} loading={testingId === item.id} onClick={() => { setTestingId(item.id); startTransition(async () => { const result = await testDatabaseConnection(item.id); if (result.ok) message.success("数据库连接正常"); else message.error(result.error); setTestingId(undefined); }); }}>测试连接</Button>}
+        {isAdmin && <><Button type="text" icon={<EditOutlined />} onClick={() => edit(item)}>编辑</Button><Popconfirm title="删除资产后审计记录仍会保留，确认删除？" onConfirm={() => startTransition(async () => { const result = await deleteDatabase(item.id); if (result.ok) message.success("已删除"); else message.error(result.error); })}><Button danger type="text" icon={<DeleteOutlined />} /></Popconfirm></>}
+      </Space>;
+    } },
   ];
 
   return <>

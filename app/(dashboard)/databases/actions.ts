@@ -5,7 +5,8 @@ import {
   createManagedDatabase, removeManagedDatabase, setManagedDatabaseEnabled,
   testManagedDatabase, updateManagedDatabase, type ManagedDatabaseInput,
 } from "@/lib/database-management";
-import { requireAdmin } from "@/lib/auth";
+import { requireAdmin, requirePageUser } from "@/lib/auth";
+import { requireDatabaseAccess } from "@/lib/authorization";
 
 export type DatabaseInput = ManagedDatabaseInput;
 
@@ -57,6 +58,11 @@ export async function toggleDatabase(id: string, enabled: boolean) {
 }
 
 export async function testDatabaseConnection(id: string) {
-  try { await requireAdmin(); await testManagedDatabase(id); return { ok: true }; }
+  try {
+    const user = await requirePageUser();
+    await requireDatabaseAccess(user, id, "read");
+    await testManagedDatabase(id);
+    return { ok: true };
+  }
   catch (error) { return { ok: false, error: error instanceof Error ? error.message : "连接测试失败" }; }
 }

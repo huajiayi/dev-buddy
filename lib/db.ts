@@ -291,13 +291,10 @@ export async function ensureSchema() {
         CREATE TABLE IF NOT EXISTS user_server_grants (
           user_id UUID NOT NULL REFERENCES app_users(id) ON DELETE CASCADE,
           server_id UUID NOT NULL REFERENCES managed_servers(id) ON DELETE CASCADE,
-          can_execute_command BOOLEAN NOT NULL DEFAULT FALSE,
-          can_open_ssh BOOLEAN NOT NULL DEFAULT FALSE,
           granted_by UUID REFERENCES app_users(id) ON DELETE SET NULL,
           created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
           updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-          PRIMARY KEY (user_id, server_id),
-          CHECK (can_execute_command OR can_open_ssh)
+          PRIMARY KEY (user_id, server_id)
         );
 
         CREATE TABLE IF NOT EXISTS user_database_grants (
@@ -317,6 +314,14 @@ export async function ensureSchema() {
           ADD COLUMN IF NOT EXISTS actor_user_id UUID REFERENCES app_users(id) ON DELETE SET NULL;
         ALTER TABLE ssh_terminal_sessions
           ADD COLUMN IF NOT EXISTS actor_user_id UUID REFERENCES app_users(id) ON DELETE SET NULL;
+      `))
+      .then(() => getPool().query(`
+        ALTER TABLE user_server_grants
+          DROP CONSTRAINT IF EXISTS user_server_grants_check;
+        ALTER TABLE user_server_grants
+          DROP COLUMN IF EXISTS can_execute_command;
+        ALTER TABLE user_server_grants
+          DROP COLUMN IF EXISTS can_open_ssh;
       `))
       .then(() => getPool().query(`
         CREATE TABLE IF NOT EXISTS system_settings (

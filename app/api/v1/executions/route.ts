@@ -35,7 +35,7 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    await requireServerAccess({ userId: apiKey.ownerUserId, role: apiKey.ownerRole }, input.serverId, "executeCommand");
+    await requireServerAccess({ userId: apiKey.ownerUserId, role: apiKey.ownerRole }, input.serverId);
     const forwarded = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim();
     const result = await executeManagedCommand({
       serverId: input.serverId,

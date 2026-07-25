@@ -6,8 +6,6 @@ import type { AppUser, UserRole } from "./auth";
 export type ServerGrant = {
   userId: string;
   serverId: string;
-  canExecuteCommand: boolean;
-  canOpenSsh: boolean;
 };
 
 export type DatabaseGrant = {
@@ -21,7 +19,6 @@ export type AuthorizationPrincipal = {
   role: UserRole;
 };
 
-type ServerCapability = "read" | "executeCommand" | "openSsh";
 type DatabaseCapability = "read" | "executeSql";
 
 function principalOf(user: AppUser | AuthorizationPrincipal): AuthorizationPrincipal {
@@ -31,24 +28,17 @@ function principalOf(user: AppUser | AuthorizationPrincipal): AuthorizationPrinc
 export async function canAccessServer(
   user: AppUser | AuthorizationPrincipal,
   serverId: string,
-  capability: ServerCapability,
 ) {
   const principal = principalOf(user);
   if (principal.role === "admin") return true;
   await ensureSchema();
-  const result = await getPool().query<{
-    can_execute_command: boolean;
-    can_open_ssh: boolean;
-  }>(
-    `SELECT can_execute_command,can_open_ssh
-     FROM user_server_grants WHERE user_id=$1 AND server_id=$2`,
+  const result = await getPool().query<{ exists: boolean }>(
+    `SELECT EXISTS(
+       SELECT 1 FROM user_server_grants WHERE user_id=$1 AND server_id=$2
+     ) AS exists`,
     [principal.userId, serverId],
   );
-  const grant = result.rows[0];
-  if (!grant) return false;
-  if (capability === "executeCommand") return grant.can_execute_command;
-  if (capability === "openSsh") return grant.can_open_ssh;
-  return grant.can_execute_command || grant.can_open_ssh;
+  return result.rows[0]?.exists ?? false;
 }
 
 export async function canAccessDatabase(
@@ -72,9 +62,8 @@ export async function canAccessDatabase(
 export async function requireServerAccess(
   user: AppUser | AuthorizationPrincipal,
   serverId: string,
-  capability: ServerCapability,
 ) {
-  if (!await canAccessServer(user, serverId, capability)) {
+  if (!await canAccessServer(user, serverId)) {
     throw new Error("没有这台服务器的操作权限");
   }
 }
@@ -115,8 +104,8 @@ export async function listResourceGrants() {
   await ensureSchema();
   const [serverResult, databaseResult] = await Promise.all([
     getPool().query<{
-      user_id: string; server_id: string; can_execute_command: boolean; can_open_ssh: boolean;
-    }>("SELECT user_id,server_id,can_execute_command,can_open_ssh FROM user_server_grants"),
+      user_id: string; server_id: string;
+    }>("SELECT user_id,server_id FROM user_server_grants"),
     getPool().query<{
       user_id: string; database_id: string; can_execute_sql: boolean;
     }>("SELECT user_id,database_id,can_execute_sql FROM user_database_grants"),
@@ -125,8 +114,6 @@ export async function listResourceGrants() {
     serverGrants: serverResult.rows.map((row): ServerGrant => ({
       userId: row.user_id,
       serverId: row.server_id,
-      canExecuteCommand: row.can_execute_command,
-      canOpenSsh: row.can_open_ssh,
     })),
     databaseGrants: databaseResult.rows.map((row): DatabaseGrant => ({
       userId: row.user_id,
@@ -147,7 +134,7 @@ export async function listUserResourceGrants(userId: string) {
 export async function replaceUserResourceGrants(input: {
   userId: string;
   grantedBy: string;
-  serverGrants: Array<{ serverId: string; canExecuteCommand: boolean; canOpenSsh: boolean }>;
+  serverIds: string[];
   databaseIds: string[];
 }) {
   await ensureSchema();
@@ -162,13 +149,12 @@ export async function replaceUserResourceGrants(input: {
     await client.query("DELETE FROM user_server_grants WHERE user_id=$1", [input.userId]);
     await client.query("DELETE FROM user_database_grants WHERE user_id=$1", [input.userId]);
     if (target.rows[0].role === "operator") {
-      for (const grant of input.serverGrants) {
-        if (!grant.canExecuteCommand && !grant.canOpenSsh) continue;
+      for (const serverId of new Set(input.serverIds)) {
         await client.query(
           `INSERT INTO user_server_grants
-           (user_id,server_id,can_execute_command,can_open_ssh,granted_by)
-           VALUES ($1,$2,$3,$4,$5)`,
-          [input.userId, grant.serverId, grant.canExecuteCommand, grant.canOpenSsh, input.grantedBy],
+           (user_id,server_id,granted_by)
+           VALUES ($1,$2,$3)`,
+          [input.userId, serverId, input.grantedBy],
         );
       }
       for (const databaseId of new Set(input.databaseIds)) {

@@ -2,7 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 import { createManagedServer, removeManagedServer, setManagedServerEnabled, testManagedServer, updateManagedServer } from "@/lib/server-management";
-import { requireAdmin } from "@/lib/auth";
+import { requireAdmin, requirePageUser } from "@/lib/auth";
+import { requireServerAccess } from "@/lib/authorization";
 
 export type ServerInput = {
   name: string; host: string; port: number; username: string;
@@ -78,7 +79,8 @@ export async function toggleServer(id: string, enabled: boolean) {
 
 export async function testServerConnection(id: string) {
   try {
-    await requireAdmin();
+    const user = await requirePageUser();
+    await requireServerAccess(user, id);
     const result = await testManagedServer(id);
     return { ok: result.exitCode === 0 && result.stdout.includes("dev-buddy-connected"), error: result.stderr || undefined };
   } catch (error) {
