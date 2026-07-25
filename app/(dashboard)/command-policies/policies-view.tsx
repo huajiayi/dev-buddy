@@ -8,11 +8,13 @@ import type { CommandPolicy } from "@/lib/server-management";
 import { createPolicy, deletePolicy, editPolicy } from "./actions";
 import type { PolicyInput } from "./actions";
 import NoticePopover from "@/app/notice-popover";
+import { useRefreshUiData } from "@/app/ui-data";
 
 const { Title, Text } = Typography;
 
 export default function PoliciesView({ policies }: { policies: CommandPolicy[] }) {
   const { message } = App.useApp();
+  const refresh = useRefreshUiData();
   const [form] = Form.useForm<PolicyInput>();
   const [open, setOpen] = useState(false);
   const [editingPolicy, setEditingPolicy] = useState<CommandPolicy>();
@@ -35,7 +37,7 @@ export default function PoliciesView({ policies }: { policies: CommandPolicy[] }
     { title: "正则表达式", dataIndex: "pattern", render: (value: string) => <Text code>{value}</Text> },
     { title: "动作", dataIndex: "action", width: 100, render: (value: CommandPolicy["action"]) => <Tag color={value === "allow" ? "green" : "red"}>{value === "allow" ? "允许" : "拒绝"}</Tag> },
     { title: "状态", dataIndex: "enabled", width: 90, render: (value: boolean) => value ? <Tag color="success">启用</Tag> : <Tag>停用</Tag> },
-    { title: "操作", width: 130, render: (_, item) => <Space><Button type="text" icon={<EditOutlined />} onClick={() => openEditModal(item)}>编辑</Button><Popconfirm title="确认删除该策略？" onConfirm={() => startTransition(async () => { const result = await deletePolicy(item.id); if (result.ok) message.success("策略已删除"); else message.error(result.error); })}><Button type="text" danger icon={<DeleteOutlined />} aria-label={`删除 ${item.name}`} /></Popconfirm></Space> },
+    { title: "操作", width: 130, render: (_, item) => <Space><Button type="text" icon={<EditOutlined />} onClick={() => openEditModal(item)}>编辑</Button><Popconfirm title="确认删除该策略？" onConfirm={() => startTransition(async () => { const result = await deletePolicy(item.id); if (result.ok) { message.success("策略已删除"); refresh(); } else message.error(result.error); })}><Button type="text" danger icon={<DeleteOutlined />} aria-label={`删除 ${item.name}`} /></Popconfirm></Space> },
   ];
   const submit = (values: PolicyInput) => startTransition(async () => {
     const result = editingPolicy
@@ -44,6 +46,7 @@ export default function PoliciesView({ policies }: { policies: CommandPolicy[] }
     if (!result.ok) { message.error(result.error); return; }
     message.success(editingPolicy ? "命令策略已更新" : "命令策略已创建");
     closeModal();
+    refresh();
   });
 
   return <>

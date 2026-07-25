@@ -416,6 +416,20 @@ body {
   min-height: 100vh;
 }
 
+.shell-loading-state,
+.page-loading-state {
+  min-height: 100vh;
+  padding: 48px;
+  background: #f5f7fa;
+}
+
+.page-loading-state {
+  min-height: 320px;
+  padding: 24px;
+  border-radius: 12px;
+  background: #fff;
+}
+
 .admin-sider {
   position: sticky !important;
   top: 0;

@@ -5,6 +5,7 @@ import { App, Breadcrumb, Button, Card, Form, Input, Popconfirm, Space, Tag, Typ
 import { useTransition } from "react";
 import NoticePopover from "@/app/notice-popover";
 import { clearDefaultUserPasswordAction, saveDefaultUserPasswordAction } from "./actions";
+import { useRefreshUiData } from "@/app/ui-data";
 
 const { Title, Text } = Typography;
 
@@ -15,6 +16,7 @@ type PasswordForm = {
 
 export default function SystemSettingsView({ hasDefaultPassword }: { hasDefaultPassword: boolean }) {
   const { message } = App.useApp();
+  const refresh = useRefreshUiData();
   const [pending, startTransition] = useTransition();
   const [form] = Form.useForm<PasswordForm>();
 
@@ -44,6 +46,7 @@ export default function SystemSettingsView({ hasDefaultPassword }: { hasDefaultP
           }
           form.resetFields();
           message.success(hasDefaultPassword ? "默认密码已更新" : "默认密码已设置");
+          refresh();
         })}
       >
         <Form.Item
@@ -91,6 +94,7 @@ export default function SystemSettingsView({ hasDefaultPassword }: { hasDefaultP
                 }
                 form.resetFields();
                 message.success("默认密码已清除");
+                refresh();
               })}
             >
               <Button danger loading={pending}>清除默认密码</Button>

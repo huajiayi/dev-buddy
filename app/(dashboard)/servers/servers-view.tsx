@@ -10,11 +10,13 @@ import type { ManagedServer } from "@/lib/server-management";
 import type { ServerGrant } from "@/lib/authorization";
 import { createServer, deleteServer, editServer, testServerConnection, toggleServer } from "./actions";
 import type { ServerInput } from "./actions";
+import { useRefreshUiData } from "@/app/ui-data";
 
 const { Title, Text } = Typography;
 
 export default function ServersView({ servers, isAdmin, grants }: { servers: ManagedServer[]; isAdmin: boolean; grants: ServerGrant[] }) {
   const { message } = App.useApp();
+  const refresh = useRefreshUiData();
   const router = useRouter();
   const [form] = Form.useForm<ServerInput>();
   const authType = Form.useWatch("authType", form);
@@ -47,6 +49,7 @@ export default function ServersView({ servers, isAdmin, grants }: { servers: Man
     if (!result.ok) { message.error(result.error); return; }
     message.success(editingServer ? "服务器已更新" : "服务器已添加");
     closeModal();
+    refresh();
   });
   const beforePrivateKeyUpload: UploadProps["beforeUpload"] = async (file) => {
     if (file.size > 64 * 1024) {
@@ -69,15 +72,15 @@ export default function ServersView({ servers, isAdmin, grants }: { servers: Man
     { title: "连接地址", width: 190, render: (_, item) => <Text code>{item.username}@{item.host}:{item.port}</Text> },
     { title: "认证", dataIndex: "authType", width: 110, render: (value: ManagedServer["authType"]) => value === "privateKey" ? "SSH 私钥" : "密码" },
     { title: "环境", dataIndex: "environment", width: 110, render: (value: string) => <Tag color={value === "production" ? "red" : value === "staging" ? "orange" : "blue"}>{value}</Tag> },
-    { title: "启用", dataIndex: "enabled", width: 90, render: (value: boolean, item) => isAdmin ? <Switch checked={value} onChange={(checked) => startTransition(async () => { const result = await toggleServer(item.id, checked); if (result.ok) message.success("状态已更新"); else message.error(result.error); })} /> : <Tag color={value ? "success" : "default"}>{value ? "已启用" : "已禁用"}</Tag> },
+    { title: "启用", dataIndex: "enabled", width: 90, render: (value: boolean, item) => isAdmin ? <Switch checked={value} onChange={(checked) => startTransition(async () => { const result = await toggleServer(item.id, checked); if (result.ok) { message.success("状态已更新"); refresh(); } else message.error(result.error); })} /> : <Tag color={value ? "success" : "default"}>{value ? "已启用" : "已禁用"}</Tag> },
     { title: "操作", width: isAdmin ? 460 : 340, render: (_, item) => {
       const grant = grantMap.get(item.id);
       const canOperate = isAdmin || Boolean(grant);
       return <Space>
-        {canOperate && <Button type="link" icon={<CodeOutlined />} disabled={!item.enabled} onClick={() => router.push(`/servers/${item.id}/terminal`)}>受控终端</Button>}
-        {canOperate && <Button type="link" icon={<DesktopOutlined />} disabled={!item.enabled} onClick={() => router.push(`/servers/${item.id}/ssh-terminal`)}>SSH 终端</Button>}
+        {canOperate && <Button type="link" icon={<CodeOutlined />} disabled={!item.enabled} onClick={() => router.push(`/server-terminal?id=${item.id}`)}>受控终端</Button>}
+        {canOperate && <Button type="link" icon={<DesktopOutlined />} disabled={!item.enabled} onClick={() => router.push(`/ssh-terminal?id=${item.id}`)}>SSH 终端</Button>}
         {canOperate && <Button type="link" icon={<ApiOutlined />} disabled={!item.enabled} loading={testingId === item.id} onClick={() => { setTestingId(item.id); startTransition(async () => { const result = await testServerConnection(item.id); if (result.ok) message.success("SSH 连接正常"); else message.error(result.error || "连接测试失败"); setTestingId(undefined); }); }}>测试连接</Button>}
-        {isAdmin && <><Button type="text" icon={<EditOutlined />} onClick={() => openEditModal(item)}>编辑</Button><Popconfirm title="确认删除这台服务器？" onConfirm={() => startTransition(async () => { const result = await deleteServer(item.id); if (result.ok) message.success("已删除"); else message.error(result.error); })}><Button danger type="text" icon={<DeleteOutlined />} aria-label={`删除 ${item.name}`} /></Popconfirm></>}
+        {isAdmin && <><Button type="text" icon={<EditOutlined />} onClick={() => openEditModal(item)}>编辑</Button><Popconfirm title="确认删除这台服务器？" onConfirm={() => startTransition(async () => { const result = await deleteServer(item.id); if (result.ok) { message.success("已删除"); refresh(); } else message.error(result.error); })}><Button danger type="text" icon={<DeleteOutlined />} aria-label={`删除 ${item.name}`} /></Popconfirm></>}
       </Space>;
     } },
   ];

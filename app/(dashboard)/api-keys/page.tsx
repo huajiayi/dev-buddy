@@ -1,10 +1,14 @@
-import { listProjectApiKeys } from "@/lib/server-management";
+"use client";
+
+import { UiDataState, useUiData } from "@/app/ui-data";
+import type { ProjectApiKey } from "@/lib/server-management";
 import ApiKeysView from "./api-keys-view";
-import { requirePageUser } from "@/lib/auth";
 
-export const dynamic = "force-dynamic";
+type ApiKeysPageData = { apiKeys: ProjectApiKey[] };
 
-export default async function ApiKeysPage() {
-  const user = await requirePageUser();
-  return <ApiKeysView apiKeys={await listProjectApiKeys(user.id)} />;
+export default function ApiKeysPage() {
+  const state = useUiData<ApiKeysPageData>("api-keys");
+  return <UiDataState data={state.data} error={state.error} loading={state.isLoading} retry={state.mutate}>
+    {(data) => <ApiKeysView apiKeys={data.apiKeys} />}
+  </UiDataState>;
 }

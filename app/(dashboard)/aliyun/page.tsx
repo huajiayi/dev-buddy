@@ -1,16 +1,12 @@
-import AccountList from "./account-list";
-import { listAliyunAccounts } from "@/lib/aliyun-accounts";
+"use client";
+
+import { UiDataState, useUiData } from "@/app/ui-data";
 import type { AliyunAccount } from "@/lib/aliyun-accounts";
+import AccountList from "./account-list";
 
-export const dynamic = "force-dynamic";
-
-export default async function AliyunAccountsPage() {
-  let accounts: AliyunAccount[] = [];
-  let loadError: string | undefined;
-  try {
-    accounts = await listAliyunAccounts();
-  } catch (error) {
-    loadError = error instanceof Error ? error.message : "无法连接 PostgreSQL";
-  }
-  return <AccountList accounts={accounts} loadError={loadError} />;
+export default function AliyunAccountsPage() {
+  const state = useUiData<{ accounts: AliyunAccount[] }>("aliyun-accounts");
+  return <UiDataState data={state.data} error={state.error} loading={state.isLoading} retry={state.mutate}>
+    {(data) => <AccountList accounts={data.accounts} />}
+  </UiDataState>;
 }

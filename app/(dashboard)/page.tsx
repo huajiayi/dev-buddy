@@ -1,29 +1,33 @@
-import { redirect } from "next/navigation";
+"use client";
+
 import AdminDashboard from "@/app/admin-dashboard";
-import { listUsers, requirePageUser } from "@/lib/auth";
-import { listManagedServers } from "@/lib/server-management";
-import { listManagedDatabases } from "@/lib/database-management";
-import { listResourceGrants } from "@/lib/authorization";
-import { hasDefaultUserPassword } from "@/lib/system-settings";
+import { UiDataState, useUiData } from "@/app/ui-data";
+import type { AppUser } from "@/lib/auth";
+import type { DatabaseGrant, ServerGrant } from "@/lib/authorization";
+import type { ManagedDatabase } from "@/lib/database-management";
+import type { ManagedServer } from "@/lib/server-management";
 
-export const dynamic = "force-dynamic";
+type UsersPageData = {
+  users: AppUser[];
+  currentUserId: string;
+  servers: ManagedServer[];
+  databases: ManagedDatabase[];
+  serverGrants: ServerGrant[];
+  databaseGrants: DatabaseGrant[];
+  defaultPasswordConfigured: boolean;
+};
 
-export default async function Home() {
-  const currentUser = await requirePageUser();
-  if (currentUser.role !== "admin") redirect("/servers");
-  const [users, servers, databases, grants, defaultPasswordConfigured] = await Promise.all([
-    listUsers(),
-    listManagedServers(),
-    listManagedDatabases(),
-    listResourceGrants(),
-    hasDefaultUserPassword(),
-  ]);
-  return <AdminDashboard
-    users={users}
-    currentUserId={currentUser.id}
-    servers={servers}
-    databases={databases}
-    hasDefaultUserPassword={defaultPasswordConfigured}
-    {...grants}
-  />;
+export default function Home() {
+  const state = useUiData<UsersPageData>("users");
+  return <UiDataState data={state.data} error={state.error} loading={state.isLoading} retry={state.mutate}>
+    {(data) => <AdminDashboard
+      users={data.users}
+      currentUserId={data.currentUserId}
+      servers={data.servers}
+      databases={data.databases}
+      serverGrants={data.serverGrants}
+      databaseGrants={data.databaseGrants}
+      hasDefaultUserPassword={data.defaultPasswordConfigured}
+    />}
+  </UiDataState>;
 }

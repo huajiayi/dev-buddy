@@ -1,11 +1,12 @@
-import { listAliyunCredentials } from "@/lib/aliyun-accounts";
-import { fetchAccountResources } from "@/lib/aliyun-insights";
+"use client";
+
+import { UiDataState, useUiData } from "@/app/ui-data";
+import type { AccountResources } from "@/lib/aliyun-insights";
 import ResourcesView from "./resources-view";
 
-export const dynamic = "force-dynamic";
-
-export default async function ResourcesPage() {
-  const accounts = await listAliyunCredentials();
-  const data = await Promise.all(accounts.map(fetchAccountResources));
-  return <ResourcesView data={data} />;
+export default function ResourcesPage() {
+  const state = useUiData<{ data: AccountResources[] }>("aliyun-resources");
+  return <UiDataState data={state.data} error={state.error} loading={state.isLoading} retry={state.mutate}>
+    {(data) => <ResourcesView data={data.data} />}
+  </UiDataState>;
 }

@@ -1,24 +1,40 @@
 "use client";
 
-import type { ReactNode } from "react";
-import { useState, useTransition } from "react";
+import { createContext, type ReactNode, useContext, useEffect, useState, useTransition } from "react";
 import {
   AppstoreOutlined, BellOutlined, CloudServerOutlined, CodeOutlined, DatabaseOutlined,
   DesktopOutlined, FileSearchOutlined, HistoryOutlined, KeyOutlined, LineChartOutlined,
   LogoutOutlined, MenuFoldOutlined, MenuUnfoldOutlined, SafetyCertificateOutlined,
   SettingOutlined, TeamOutlined,
 } from "@ant-design/icons";
-import { App, Avatar, Button, ConfigProvider, Dropdown, Flex, Layout, Menu, Space, Typography, theme } from "antd";
+import { App, Avatar, Button, ConfigProvider, Dropdown, Flex, Layout, Menu, Result, Skeleton, Space, Typography, theme } from "antd";
 import type { MenuProps } from "antd";
 import zhCN from "antd/locale/zh_CN";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import type { AppUser, UserRole } from "@/lib/auth";
 import { logoutAction } from "./login/actions";
+import useSWR from "swr";
 
 const { Header, Sider, Content } = Layout;
 const { Text } = Typography;
 const roleLabels: Record<UserRole, string> = { admin: "管理员", operator: "运维人员" };
+const SessionContext = createContext<AppUser | null>(null);
+
+async function loadSession(url: string) {
+  const response = await fetch(url, { credentials: "same-origin", cache: "no-store" });
+  const payload = await response.json() as { data?: AppUser; message?: string };
+  if (!response.ok || !payload.data) {
+    const error = new Error(payload.message || "登录状态读取失败") as Error & { status?: number };
+    error.status = response.status;
+    throw error;
+  }
+  return payload.data;
+}
+
+export function useCurrentUser() {
+  return useContext(SessionContext);
+}
 
 function Shell({ children, user }: { children: ReactNode; user: AppUser }) {
   const { token } = theme.useToken();
@@ -26,11 +42,16 @@ function Shell({ children, user }: { children: ReactNode; user: AppUser }) {
   const router = useRouter();
   const [collapsed, setCollapsed] = useState(false);
   const [loggingOut, startLogout] = useTransition();
-  const databaseWorkbench = /^\/databases\/[^/]+\/workbench/.test(pathname);
-  const sshTerminal = /^\/servers\/[^/]+\/ssh-terminal/.test(pathname);
+  const databaseWorkbench = pathname === "/database-workbench";
+  const controlledTerminal = pathname === "/server-terminal";
+  const sshTerminal = pathname === "/ssh-terminal";
   const workspaceMode = databaseWorkbench || sshTerminal;
-  const selectedKey = ["/database-executions", "/database-policies", "/databases", "/terminal-sessions", "/servers", "/command-policies", "/executions", "/system-settings", "/api-keys", "/aliyun/resources", "/aliyun/costs", "/aliyun/risks"].find((key) => pathname.startsWith(key))
-    ?? (pathname.startsWith("/aliyun") ? "/aliyun" : "/");
+  const selectedKey = databaseWorkbench
+    ? "/databases"
+    : controlledTerminal || sshTerminal
+      ? "/servers"
+      : ["/database-executions", "/database-policies", "/databases", "/terminal-sessions", "/servers", "/command-policies", "/executions", "/system-settings", "/api-keys", "/aliyun/resources", "/aliyun/costs", "/aliyun/risks"].find((key) => pathname.startsWith(key))
+        ?? (pathname.startsWith("/aliyun") ? "/aliyun" : "/");
   const accountItems: MenuProps["items"] = [
     { key: "identity", label: <div className="account-menu-identity"><Text strong>{user.displayName}</Text><Text type="secondary">{roleLabels[user.role]}</Text></div>, disabled: true },
     { type: "divider" },
@@ -111,6 +132,26 @@ function Shell({ children, user }: { children: ReactNode; user: AppUser }) {
   </Layout>;
 }
 
-export default function AdminShellClient({ children, user }: { children: ReactNode; user: AppUser }) {
-  return <ConfigProvider locale={zhCN} theme={{ token: { colorPrimary: "#1677ff", borderRadius: 8, colorBgLayout: "#f5f7fa" }, components: { Layout: { headerBg: "#ffffff", siderBg: "#001529" } } }}><App><Shell user={user}>{children}</Shell></App></ConfigProvider>;
+export default function AdminShellClient({ children }: { children: ReactNode }) {
+  const router = useRouter();
+  const { data: user, error, isLoading } = useSWR<AppUser>("/api/ui/session", loadSession, {
+    revalidateOnFocus: false,
+  });
+
+  useEffect(() => {
+    if ((error as Error & { status?: number } | undefined)?.status === 401) {
+      router.replace(`/login?next=${encodeURIComponent(window.location.pathname)}`);
+    }
+  }, [error, router]);
+
+  let content: ReactNode;
+  if (isLoading || (!user && !error)) {
+    content = <div className="shell-loading-state"><Skeleton active paragraph={{ rows: 8 }} /></div>;
+  } else if (error || !user) {
+    content = <Result status="error" title="登录状态读取失败" subTitle={error?.message} />;
+  } else {
+    content = <SessionContext.Provider value={user}><Shell user={user}>{children}</Shell></SessionContext.Provider>;
+  }
+
+  return <ConfigProvider locale={zhCN} theme={{ token: { colorPrimary: "#1677ff", borderRadius: 8, colorBgLayout: "#f5f7fa" }, components: { Layout: { headerBg: "#ffffff", siderBg: "#001529" } } }}><App>{content}</App></ConfigProvider>;
 }

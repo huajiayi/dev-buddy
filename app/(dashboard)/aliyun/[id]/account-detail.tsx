@@ -7,6 +7,7 @@ import type { TableColumnsType } from "antd";
 import { useRouter } from "next/navigation";
 import type { AliyunAccount } from "@/lib/aliyun-accounts";
 import type { AliyunOverview, EcsInstanceSummary } from "@/lib/aliyun";
+import { useRefreshUiData } from "@/app/ui-data";
 
 const { Title, Text } = Typography;
 
@@ -16,6 +17,7 @@ function money(value: number, currency: string) {
 
 export default function AccountDetail({ account, overview, error }: { account: AliyunAccount; overview?: AliyunOverview; error?: string }) {
   const router = useRouter();
+  const refresh = useRefreshUiData();
   const [isRefreshing, startRefresh] = useTransition();
   const instanceColumns: TableColumnsType<EcsInstanceSummary> = [
     { title: "实例", dataIndex: "name", width: 190, render: (_, item) => <div><Text strong>{item.name}</Text><div><Text type="secondary" className="user-subtext">{item.id}</Text></div></div> },
@@ -34,7 +36,7 @@ export default function AccountDetail({ account, overview, error }: { account: A
 
   return <>
     <Breadcrumb items={[{ title: "首页" }, { title: "阿里云账号管理" }, { title: account.name }]} />
-    <div className="detail-heading"><div><Button type="text" icon={<ArrowLeftOutlined />} onClick={() => router.push("/aliyun")}>返回账号列表</Button><Title level={2}>{account.name}</Title><Text type="secondary">{account.site === "international" ? "Alibaba Cloud 国际站" : "阿里云中国站"} · {account.accessKeyId.slice(0, 6)}****{account.accessKeyId.slice(-4)} · 自动扫描全部可用地域</Text></div><Button icon={<ReloadOutlined />} loading={isRefreshing} onClick={() => startRefresh(() => router.refresh())}>{isRefreshing ? "正在刷新" : "刷新数据"}</Button></div>
+    <div className="detail-heading"><div><Button type="text" icon={<ArrowLeftOutlined />} onClick={() => router.push("/aliyun")}>返回账号列表</Button><Title level={2}>{account.name}</Title><Text type="secondary">{account.site === "international" ? "Alibaba Cloud 国际站" : "阿里云中国站"} · {account.accessKeyId.slice(0, 6)}****{account.accessKeyId.slice(-4)} · 自动扫描全部可用地域</Text></div><Button icon={<ReloadOutlined />} loading={isRefreshing} onClick={() => startRefresh(refresh)}>{isRefreshing ? "正在刷新" : "刷新数据"}</Button></div>
     {error && <Alert type="error" showIcon title="阿里云数据读取失败" description={error} className="detail-alert" />}
     {overview && <>
       {overview.regionErrors.length > 0 && <Alert type="warning" showIcon title="部分地域读取失败" description={overview.regionErrors.map((item) => `${item.region}: ${item.message}`).join("；")} className="detail-alert" />}

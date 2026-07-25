@@ -1,8 +1,12 @@
-import { listDatabaseQueryExecutions } from "@/lib/database-management";
+"use client";
+
+import { UiDataState, useUiData } from "@/app/ui-data";
+import type { DatabaseQueryExecution } from "@/lib/database-management";
 import DatabaseExecutionsView from "./database-executions-view";
 
-export const dynamic = "force-dynamic";
-export default async function DatabaseExecutionsPage() {
-  return <DatabaseExecutionsView executions={await listDatabaseQueryExecutions()} />;
+export default function DatabaseExecutionsPage() {
+  const state = useUiData<{ executions: DatabaseQueryExecution[] }>("database-executions");
+  return <UiDataState data={state.data} error={state.error} loading={state.isLoading} retry={state.mutate}>
+    {(data) => <DatabaseExecutionsView executions={data.executions} />}
+  </UiDataState>;
 }
-

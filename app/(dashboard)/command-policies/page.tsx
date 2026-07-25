@@ -1,10 +1,12 @@
-import { listCommandPolicies } from "@/lib/server-management";
+"use client";
+
+import { UiDataState, useUiData } from "@/app/ui-data";
+import type { CommandPolicy } from "@/lib/server-management";
 import PoliciesView from "./policies-view";
-import { requirePageAdmin } from "@/lib/auth";
 
-export const dynamic = "force-dynamic";
-
-export default async function CommandPoliciesPage() {
-  await requirePageAdmin();
-  return <PoliciesView policies={await listCommandPolicies()} />;
+export default function CommandPoliciesPage() {
+  const state = useUiData<{ policies: CommandPolicy[] }>("command-policies");
+  return <UiDataState data={state.data} error={state.error} loading={state.isLoading} retry={state.mutate}>
+    {(data) => <PoliciesView policies={data.policies} />}
+  </UiDataState>;
 }

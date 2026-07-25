@@ -7,10 +7,12 @@ import { useState, useTransition } from "react";
 import type { DatabaseQueryPolicy } from "@/lib/database-management";
 import { createPolicy, deletePolicy, editPolicy, type DatabasePolicyInput } from "./actions";
 import NoticePopover from "@/app/notice-popover";
+import { useRefreshUiData } from "@/app/ui-data";
 
 const { Title, Text } = Typography;
 export default function DatabasePoliciesView({ policies }: { policies: DatabaseQueryPolicy[] }) {
   const { message } = App.useApp();
+  const refresh = useRefreshUiData();
   const [form] = Form.useForm<DatabasePolicyInput>();
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<DatabaseQueryPolicy>();
@@ -21,7 +23,7 @@ export default function DatabasePoliciesView({ policies }: { policies: DatabaseQ
   const submit = (values: DatabasePolicyInput) => startTransition(async () => {
     const result = editing ? await editPolicy(editing.id, values) : await createPolicy(values);
     if (!result.ok) { message.error(result.error); return; }
-    message.success(editing ? "SQL 策略已更新" : "SQL 策略已创建"); close();
+    message.success(editing ? "SQL 策略已更新" : "SQL 策略已创建"); close(); refresh();
   });
   const columns: TableColumnsType<DatabaseQueryPolicy> = [
     { title: "优先级", dataIndex: "priority", width: 90 },
@@ -29,7 +31,7 @@ export default function DatabasePoliciesView({ policies }: { policies: DatabaseQ
     { title: "SQL 正则表达式", dataIndex: "pattern", render: (value) => <Text code>{value}</Text> },
     { title: "动作", dataIndex: "action", width: 90, render: (value) => <Tag color={value === "allow" ? "green" : "red"}>{value === "allow" ? "允许" : "拒绝"}</Tag> },
     { title: "状态", dataIndex: "enabled", width: 90, render: (value) => value ? <Tag color="success">启用</Tag> : <Tag>停用</Tag> },
-    { title: "操作", width: 140, render: (_, item) => <Space><Button type="text" icon={<EditOutlined />} onClick={() => edit(item)}>编辑</Button><Popconfirm title="确认删除该策略？" onConfirm={() => startTransition(async () => { const result = await deletePolicy(item.id); if (result.ok) message.success("策略已删除"); else message.error(result.error); })}><Button danger type="text" icon={<DeleteOutlined />} /></Popconfirm></Space> },
+    { title: "操作", width: 140, render: (_, item) => <Space><Button type="text" icon={<EditOutlined />} onClick={() => edit(item)}>编辑</Button><Popconfirm title="确认删除该策略？" onConfirm={() => startTransition(async () => { const result = await deletePolicy(item.id); if (result.ok) { message.success("策略已删除"); refresh(); } else message.error(result.error); })}><Button danger type="text" icon={<DeleteOutlined />} /></Popconfirm></Space> },
   ];
   return <>
     <Breadcrumb items={[{ title: "首页" }, { title: "数据库管理" }, { title: "SQL 策略" }]} />

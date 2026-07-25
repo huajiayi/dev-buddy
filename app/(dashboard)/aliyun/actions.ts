@@ -27,7 +27,7 @@ export async function updateAliyunAccountSite(id: string, site: "china" | "inter
     if (!["china", "international"].includes(site)) return { ok: false, error: "无效的阿里云站点" };
     await setAliyunAccountSite(id, site);
     revalidatePath("/aliyun");
-    revalidatePath(`/aliyun/${id}`);
+    revalidatePath("/aliyun-account");
     return { ok: true };
   } catch (error) {
     return { ok: false, error: error instanceof Error ? error.message : "站点更新失败" };
@@ -51,7 +51,7 @@ export async function editAliyunAccount(id: string, input: AccountInput) {
       site: input.site,
     });
     revalidatePath("/aliyun");
-    revalidatePath(`/aliyun/${id}`);
+    revalidatePath("/aliyun-account");
     return { ok: true };
   } catch (error) {
     return { ok: false, error: error instanceof Error ? error.message : "账号更新失败" };

@@ -1,8 +1,11 @@
-import { hasDefaultUserPassword } from "@/lib/system-settings";
+"use client";
+
+import { UiDataState, useUiData } from "@/app/ui-data";
 import SystemSettingsView from "./system-settings-view";
 
-export const dynamic = "force-dynamic";
-
-export default async function SystemSettingsPage() {
-  return <SystemSettingsView hasDefaultPassword={await hasDefaultUserPassword()} />;
+export default function SystemSettingsPage() {
+  const state = useUiData<{ hasDefaultPassword: boolean }>("system-settings");
+  return <UiDataState data={state.data} error={state.error} loading={state.isLoading} retry={state.mutate}>
+    {(data) => <SystemSettingsView hasDefaultPassword={data.hasDefaultPassword} />}
+  </UiDataState>;
 }

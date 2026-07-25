@@ -9,11 +9,13 @@ import type { ManagedDatabase } from "@/lib/database-management";
 import type { ManagedServer } from "@/lib/server-management";
 import type { DatabaseGrant } from "@/lib/authorization";
 import { createDatabase, deleteDatabase, editDatabase, testDatabaseConnection, toggleDatabase, type DatabaseInput } from "./actions";
+import { useRefreshUiData } from "@/app/ui-data";
 
 const { Title, Text } = Typography;
 
 export default function DatabasesView({ databases, servers, isAdmin, grants }: { databases: ManagedDatabase[]; servers: ManagedServer[]; isAdmin: boolean; grants: DatabaseGrant[] }) {
   const { message } = App.useApp();
+  const refresh = useRefreshUiData();
   const router = useRouter();
   const [form] = Form.useForm<DatabaseInput>();
   const [open, setOpen] = useState(false);
@@ -36,7 +38,7 @@ export default function DatabasesView({ databases, servers, isAdmin, grants }: {
   const submit = (values: DatabaseInput) => startTransition(async () => {
     const result = editing ? await editDatabase(editing.id, values) : await createDatabase(values);
     if (!result.ok) { message.error(result.error); return; }
-    message.success(editing ? "数据库已更新" : "数据库已添加"); close();
+    message.success(editing ? "数据库已更新" : "数据库已添加"); close(); refresh();
   });
   const uploadCa: UploadProps["beforeUpload"] = async (file) => {
     if (file.size > 64 * 1024) { message.error("CA 文件不能超过 64 KB"); return Upload.LIST_IGNORE; }
@@ -51,13 +53,13 @@ export default function DatabasesView({ databases, servers, isAdmin, grants }: {
     { title: "连接方式", width: 160, render: (_, item) => item.connectionMode === "direct" ? "直连" : `SSH：${item.sshServerName || "未知"}` },
     { title: "TLS", dataIndex: "tlsMode", width: 110 },
     { title: "环境", dataIndex: "environment", width: 100 },
-    { title: "启用", width: 90, render: (_, item) => isAdmin ? <Switch checked={item.enabled} onChange={(enabled) => startTransition(async () => { const result = await toggleDatabase(item.id, enabled); if (result.ok) message.success("状态已更新"); else message.error(result.error); })} /> : <Tag color={item.enabled ? "success" : "default"}>{item.enabled ? "已启用" : "已禁用"}</Tag> },
+    { title: "启用", width: 90, render: (_, item) => isAdmin ? <Switch checked={item.enabled} onChange={(enabled) => startTransition(async () => { const result = await toggleDatabase(item.id, enabled); if (result.ok) { message.success("状态已更新"); refresh(); } else message.error(result.error); })} /> : <Tag color={item.enabled ? "success" : "default"}>{item.enabled ? "已启用" : "已禁用"}</Tag> },
     { title: "操作", width: isAdmin ? 390 : 260, render: (_, item) => {
       const canOperate = isAdmin || grantedIds.has(item.id);
       return <Space>
-        {canOperate && <Button type="link" icon={<CodeOutlined />} disabled={!item.enabled} onClick={() => router.push(`/databases/${item.id}/workbench`)}>打开工作台</Button>}
+        {canOperate && <Button type="link" icon={<CodeOutlined />} disabled={!item.enabled} onClick={() => router.push(`/database-workbench?id=${item.id}`)}>打开工作台</Button>}
         {canOperate && <Button type="link" icon={<ApiOutlined />} disabled={!item.enabled} loading={testingId === item.id} onClick={() => { setTestingId(item.id); startTransition(async () => { const result = await testDatabaseConnection(item.id); if (result.ok) message.success("数据库连接正常"); else message.error(result.error); setTestingId(undefined); }); }}>测试连接</Button>}
-        {isAdmin && <><Button type="text" icon={<EditOutlined />} onClick={() => edit(item)}>编辑</Button><Popconfirm title="删除资产后审计记录仍会保留，确认删除？" onConfirm={() => startTransition(async () => { const result = await deleteDatabase(item.id); if (result.ok) message.success("已删除"); else message.error(result.error); })}><Button danger type="text" icon={<DeleteOutlined />} /></Popconfirm></>}
+        {isAdmin && <><Button type="text" icon={<EditOutlined />} onClick={() => edit(item)}>编辑</Button><Popconfirm title="删除资产后审计记录仍会保留，确认删除？" onConfirm={() => startTransition(async () => { const result = await deleteDatabase(item.id); if (result.ok) { message.success("已删除"); refresh(); } else message.error(result.error); })}><Button danger type="text" icon={<DeleteOutlined />} /></Popconfirm></>}
       </Space>;
     } },
   ];

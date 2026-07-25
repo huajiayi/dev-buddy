@@ -1,11 +1,12 @@
-import { listAliyunCredentials } from "@/lib/aliyun-accounts";
-import { fetchAccountRisks } from "@/lib/aliyun-insights";
+"use client";
+
+import { UiDataState, useUiData } from "@/app/ui-data";
+import type { AccountRisks } from "@/lib/aliyun-insights";
 import RisksView from "./risks-view";
 
-export const dynamic = "force-dynamic";
-
-export default async function RisksPage() {
-  const accounts = await listAliyunCredentials();
-  const data = await Promise.all(accounts.map(fetchAccountRisks));
-  return <RisksView data={data} />;
+export default function RisksPage() {
+  const state = useUiData<{ data: AccountRisks[] }>("aliyun-risks");
+  return <UiDataState data={state.data} error={state.error} loading={state.isLoading} retry={state.mutate}>
+    {(data) => <RisksView data={data.data} />}
+  </UiDataState>;
 }

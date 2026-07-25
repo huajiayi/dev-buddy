@@ -1,8 +1,12 @@
-import { listSshTerminalSessions } from "@/lib/server-management";
+"use client";
+
+import { UiDataState, useUiData } from "@/app/ui-data";
+import type { SshTerminalSession } from "@/lib/server-management";
 import TerminalSessionsView from "./terminal-sessions-view";
 
-export const dynamic = "force-dynamic";
-
-export default async function TerminalSessionsPage() {
-  return <TerminalSessionsView sessions={await listSshTerminalSessions()} />;
+export default function TerminalSessionsPage() {
+  const state = useUiData<{ sessions: SshTerminalSession[] }>("terminal-sessions");
+  return <UiDataState data={state.data} error={state.error} loading={state.isLoading} retry={state.mutate}>
+    {(data) => <TerminalSessionsView sessions={data.sessions} />}
+  </UiDataState>;
 }
