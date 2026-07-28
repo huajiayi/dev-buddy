@@ -91,7 +91,7 @@ export default function HomeDashboard({
     <Breadcrumb items={[{ title: "首页" }, { title: "工作台" }]} />
 
     <Card className="welcome-card">
-      <Flex justify="space-between" align="center" gap={24} wrap>
+      <Flex justify="space-between" align="center" gap={20} wrap>
         <div>
           <Space size={10} wrap>
             <Tag color={role === "admin" ? "red" : "blue"}>{role === "admin" ? "管理员" : "运维人员"}</Tag>
@@ -105,7 +105,7 @@ export default function HomeDashboard({
           </Paragraph>
         </div>
         <div className="welcome-progress">
-          <Progress type="circle" percent={progress.percent} size={104} />
+          <Progress type="circle" percent={progress.percent} size={88} />
           {firstIncomplete && <Button type="primary" icon={<RocketOutlined />} onClick={() => router.push(firstIncomplete.href)}>
             {firstIncomplete.actionLabel}
           </Button>}

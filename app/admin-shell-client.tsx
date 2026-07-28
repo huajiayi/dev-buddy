@@ -120,7 +120,7 @@ function Shell({ children, user }: { children: ReactNode; user: AppUser }) {
   ];
 
   return <Layout className="admin-shell">
-    <Sider trigger={null} collapsible collapsed={collapsed} breakpoint="lg" collapsedWidth={72} width={232} onBreakpoint={setCollapsed} theme="dark" className="admin-sider">
+    <Sider trigger={null} collapsible collapsed={collapsed} breakpoint="lg" collapsedWidth={64} width={220} onBreakpoint={setCollapsed} theme="dark" className="admin-sider">
       <div className="admin-brand"><div className="brand-mark">D</div>{!collapsed && <span>Dev Buddy</span>}</div>
       <Menu
         theme="dark"
@@ -172,5 +172,41 @@ export default function AdminShellClient({ children }: { children: ReactNode }) 
     content = <SessionContext.Provider value={user}><Shell user={user}>{children}</Shell></SessionContext.Provider>;
   }
 
-  return <ConfigProvider locale={zhCN} theme={{ token: { colorPrimary: "#1677ff", borderRadius: 8, colorBgLayout: "#f5f7fa" }, components: { Layout: { headerBg: "#ffffff", siderBg: "#001529" } } }}><App>{content}</App></ConfigProvider>;
+  return <ConfigProvider
+    locale={zhCN}
+    theme={{
+      token: {
+        colorPrimary: "#1677ff",
+        borderRadius: 8,
+        borderRadiusLG: 10,
+        colorBgLayout: "#f5f7fa",
+        controlHeightLG: 36,
+      },
+      components: {
+        Card: {
+          bodyPadding: 16,
+          headerFontSize: 15,
+          headerHeight: 48,
+        },
+        Form: {
+          itemMarginBottom: 16,
+          verticalLabelPadding: "0 0 5px",
+        },
+        Layout: {
+          headerBg: "#ffffff",
+          siderBg: "#001529",
+        },
+        Menu: {
+          itemHeight: 36,
+          itemMarginBlock: 2,
+          itemMarginInline: 8,
+        },
+        Table: {
+          cellPaddingBlock: 9,
+          cellPaddingInline: 12,
+          headerBg: "#fafafa",
+        },
+      },
+    }}
+  ><App>{content}</App></ConfigProvider>;
 }
