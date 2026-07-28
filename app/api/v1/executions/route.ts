@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
+import { confirmationRequired } from "@/lib/api-confirmation";
+import { isHighRiskCommand } from "@/lib/command-risk";
 import { authenticateProjectApiKey, checkApiKeyRateLimit, executeManagedCommand } from "@/lib/server-management";
 import { requireServerAccess } from "@/lib/authorization";
 import { authorizeManagedSession, recordManagedSessionEvent } from "@/lib/managed-sessions";
@@ -45,6 +47,13 @@ export async function POST(request: NextRequest) {
         resourceId: input.serverId,
       })
       : null;
+    if (managedSession) {
+      const confirmation = confirmationRequired(request, "execute-managed-command");
+      if (confirmation) return confirmation;
+    } else if (isHighRiskCommand(input.command)) {
+      const confirmation = confirmationRequired(request, "execute-risky-command");
+      if (confirmation) return confirmation;
+    }
     if (!managedSession) {
       await requireServerAccess({ userId: apiKey.ownerUserId, role: apiKey.ownerRole }, input.serverId);
     }

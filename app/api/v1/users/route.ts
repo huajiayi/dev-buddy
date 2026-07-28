@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { confirmationRequired } from "@/lib/api-confirmation";
 import { ApiAuthenticationError, requireAdminApiKey } from "@/lib/api-auth";
 import { listUsers } from "@/lib/auth";
 import { createUser } from "@/lib/user-management";
@@ -34,6 +35,10 @@ export async function POST(request: NextRequest) {
     }
     const body = await request.json() as Record<string, unknown>;
     const input = parseUserApiInput(body);
+    if (input.role === "admin") {
+      const confirmation = confirmationRequired(request, "create-admin-user");
+      if (confirmation) return confirmation;
+    }
     const id = await createUser(input);
     return NextResponse.json({ data: { id } }, { status: 201 });
   } catch (error) {

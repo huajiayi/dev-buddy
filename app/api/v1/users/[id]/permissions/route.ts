@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { confirmationRequired } from "@/lib/api-confirmation";
 import { ApiAuthenticationError, requireAdminApiKey } from "@/lib/api-auth";
 import { listUsers } from "@/lib/auth";
 import { listUserResourceGrants, replaceUserResourceGrants } from "@/lib/authorization";
@@ -65,6 +66,8 @@ export async function PUT(
         { status: 400 },
       );
     }
+    const confirmation = confirmationRequired(request, "replace-user-permissions");
+    if (confirmation) return confirmation;
     const body = await request.json() as Record<string, unknown>;
     if (!Array.isArray(body.serverIds) || !Array.isArray(body.databaseIds)) {
       return NextResponse.json(

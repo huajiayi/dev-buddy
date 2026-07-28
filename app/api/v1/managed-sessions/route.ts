@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { confirmationRequired } from "@/lib/api-confirmation";
 import { authenticateProjectApiKey } from "@/lib/server-management";
 import { createManagedSession, listManagedSessions } from "@/lib/managed-sessions";
 
@@ -30,6 +31,8 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   const apiKey = await authenticateProjectApiKey(bearerToken(request));
   if (!apiKey) return NextResponse.json({ error: "invalid_api_key", message: "API Key 无效、已禁用或已过期" }, { status: 401 });
+  const confirmation = confirmationRequired(request, "start-managed-session");
+  if (confirmation) return confirmation;
   let body: unknown;
   try {
     body = await request.json();

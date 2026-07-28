@@ -346,16 +346,30 @@ AI 输出时应明确分成：
 #### 对外 API
 
 ```text
-GET  /api/v1/servers
-GET  /api/v1/servers/{id}/overview
-GET  /api/v1/servers/{id}/containers
-GET  /api/v1/containers/{id}/logs
-POST /api/v1/diagnostic-sessions
-POST /api/v1/executions
-GET  /api/v1/executions/{id}
-GET  /api/v1/command-policies
-POST /api/v1/command-policies
+GET|POST            /api/v1/servers
+PATCH|DELETE        /api/v1/servers/{id}
+POST                /api/v1/servers/{id}/test
+GET|POST            /api/v1/databases
+PATCH|DELETE        /api/v1/databases/{id}
+POST                /api/v1/databases/{id}/test
+GET|POST            /api/v1/command-policies
+PATCH|DELETE        /api/v1/command-policies/{id}
+GET|POST            /api/v1/database-policies
+PATCH|DELETE        /api/v1/database-policies/{id}
+POST                /api/v1/executions
+POST                /api/v1/database-queries
+GET|POST            /api/v1/managed-sessions
+GET                 /api/v1/managed-sessions/{id}
+POST                /api/v1/managed-sessions/{id}/end
+GET|POST            /api/v1/users
+PATCH|DELETE        /api/v1/users/{id}
+GET|PUT             /api/v1/users/{id}/permissions
 ```
+
+删除、启停、资产配置更新、策略创建/更新/删除、写 SQL、风险命令、
+全托管会话和用户安全边界变更需要 `X-Dev-Buddy-Confirm` 二次确认头。
+缺少或不匹配时返回 HTTP 428。API Key 生命周期、系统默认密码和云账号凭据
+继续只允许在人工后台管理。
 
 ### Skill 能力
 

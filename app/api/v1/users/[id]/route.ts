@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { confirmationRequired } from "@/lib/api-confirmation";
 import { ApiAuthenticationError, requireAdminApiKey } from "@/lib/api-auth";
 import { listUsers } from "@/lib/auth";
 import { removeUser, resetUserPassword, setUserEnabled, updateUser } from "@/lib/user-management";
@@ -36,6 +37,13 @@ export async function PATCH(
       email: target.email || undefined,
       role: target.role,
     });
+    const securityChange = input.role !== target.role
+      || (typeof body.enabled === "boolean" && body.enabled !== target.enabled)
+      || Boolean(input.password);
+    if (securityChange) {
+      const confirmation = confirmationRequired(request, "update-user-security");
+      if (confirmation) return confirmation;
+    }
     await updateUser(id, input);
     if (typeof body.enabled === "boolean" && body.enabled !== target.enabled) {
       await setUserEnabled(id, body.enabled, apiKey.ownerUserId);
@@ -60,6 +68,8 @@ export async function DELETE(
     if (!validId(id)) {
       return NextResponse.json({ error: "invalid_user_id", message: "用户 ID 格式错误" }, { status: 400 });
     }
+    const confirmation = confirmationRequired(request, "delete-user");
+    if (confirmation) return confirmation;
     await removeUser(id, apiKey.ownerUserId);
     return NextResponse.json({ data: { id, deleted: true } });
   } catch (error) {

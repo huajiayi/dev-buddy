@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { checkDatabaseQueryRateLimit, executeDatabaseQuery } from "@/lib/database-management";
+import { confirmationRequired } from "@/lib/api-confirmation";
+import { analyzeSql } from "@/lib/database-query-policy";
+import { checkDatabaseQueryRateLimit, executeDatabaseQuery, listManagedDatabases } from "@/lib/database-management";
 import { authenticateProjectApiKey } from "@/lib/server-management";
 import { requireDatabaseAccess } from "@/lib/authorization";
 import { authorizeManagedSession, recordManagedSessionEvent } from "@/lib/managed-sessions";
@@ -33,6 +35,13 @@ export async function POST(request: NextRequest) {
       : null;
     if (!managedSession) {
       await requireDatabaseAccess({ userId: apiKey.ownerUserId, role: apiKey.ownerRole }, value.databaseId, "executeSql");
+    }
+    const database = (await listManagedDatabases()).find((item) => item.id === value.databaseId);
+    if (!database) throw new Error("数据库资产不存在");
+    const analysis = analyzeSql(value.sql, database.engine);
+    if (!analysis.readOnly) {
+      const confirmation = confirmationRequired(request, "execute-mutating-sql");
+      if (confirmation) return confirmation;
     }
     const remoteAddress = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || undefined;
     const result = await executeDatabaseQuery({
