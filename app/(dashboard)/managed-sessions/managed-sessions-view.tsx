@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
   AuditOutlined, ClockCircleOutlined, CopyOutlined, EyeOutlined,
-  RobotOutlined, StopOutlined,
+  RobotOutlined, SafetyCertificateOutlined, StopOutlined,
 } from "@ant-design/icons";
 import {
   Alert, App, Breadcrumb, Button, Card, Checkbox, Descriptions, Empty, Form, Input,
@@ -32,6 +32,14 @@ const statusMeta: Record<ManagedSessionStatus, { label: string; color: string }>
   revoked: { label: "管理员终止", color: "warning" },
   failed: { label: "异常结束", color: "error" },
 };
+
+const managedSessionPrompt = `请使用 Dev Buddy 的 AI 全托管处理以下任务：
+
+目标：[要完成的具体结果]
+资源范围：[准确的服务器或数据库名称]
+有效期：[15–120 分钟]
+
+请先读取资源当前状态，列出准确目标、计划操作、预期影响和恢复限制，然后停下来让我二次确认。收到我的明确确认后再开启托管并执行。完成目标或无法安全继续时，请立即结束托管，并汇报执行记录、验证结果和剩余风险。`;
 
 function useCurrentTime(active: boolean) {
   const [now, setNow] = useState(0);
@@ -162,7 +170,7 @@ export default function ManagedSessionsView({
   return <>
     <Breadcrumb items={[{ title: "首页" }, { title: "AI 全托管" }, ...(adminMode ? [{ title: "托管审计" }] : [])]} />
     <div className="page-heading">
-      <div><Title level={2}>{adminMode ? "AI 托管审计" : "AI 全托管"} </Title><Text type="secondary">{adminMode ? "查看所有用户的临时高权限会话、动作时间线和总结" : "在限定时间和资源范围内临时允许 AI 执行高权限操作"}</Text></div>
+      <div><Title level={2}>{adminMode ? "AI 托管审计" : "AI 全托管"} </Title><Text type="secondary">{adminMode ? "查看所有用户的临时高权限会话、动作时间线和总结" : "告诉 AI 目标和边界，由 AI 发起一段限时、限定资源的高权限会话"}</Text></div>
       {!adminMode && <Button
         type="primary"
         danger
@@ -170,7 +178,7 @@ export default function ManagedSessionsView({
         disabled={Boolean(active) || !onboardingReady}
         title={!onboardingReady ? "请先完成基础入门任务" : undefined}
         onClick={() => setOpen(true)}
-      >开启全托管</Button>}
+      >手动开启</Button>}
     </div>
 
     {!adminMode && !onboardingReady && <Alert
@@ -186,6 +194,50 @@ export default function ManagedSessionsView({
       action={<Button onClick={() => router.push("/")}>返回入门工作台</Button>}
       className="managed-readiness-alert"
     />}
+
+    {!adminMode && !active && <Card
+      title={<Space><RobotOutlined />让 AI 发起全托管</Space>}
+      extra={<Tag color="blue">推荐方式</Tag>}
+      className="detail-card managed-guide-card"
+    >
+      <div className="managed-guide-layout">
+        <div>
+          <Paragraph>
+            在已安装 Dev Buddy Skill 的 AI 会话中，把方括号内容替换为本次任务后发送：
+          </Paragraph>
+          <div className="managed-prompt-block">
+            <pre>{managedSessionPrompt}</pre>
+            <Button
+              type="primary"
+              ghost
+              icon={<CopyOutlined />}
+              onClick={async () => {
+                await navigator.clipboard.writeText(managedSessionPrompt);
+                message.success("示例话术已复制");
+              }}
+            >
+              复制话术
+            </Button>
+          </div>
+          <Text type="secondary">
+            AI 会先完成只读检查并给出授权提案。你需要在下一条消息中确认提案里的精确资源和操作，托管才会真正开启。
+          </Text>
+        </div>
+        <Alert
+          type="warning"
+          showIcon
+          icon={<SafetyCertificateOutlined />}
+          title="开启前注意"
+          description={<ul className="managed-notice-list">
+            <li>优先使用普通受控模式；只有明确需要修改、重启、删除或数据库写入时才开启。</li>
+            <li>资源名称、目标和有效期必须具体，AI 不应根据简称猜测生产资源。</li>
+            <li>托管仅绕过所选资源的命令与 SQL 策略，身份权限、时间限制和审计仍然生效。</li>
+            <li>不要在对话中粘贴 API Key、密码、私钥或托管令牌；令牌应由本地 Skill 临时持有。</li>
+            <li>目标完成或无法安全继续时应立即结束；你也可以随时在本页手动终止。</li>
+          </ul>}
+        />
+      </div>
+    </Card>}
 
     {active && !adminMode && <Alert
       type="error"
