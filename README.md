@@ -66,11 +66,31 @@ git pull
 docker compose up -d --build
 ```
 
+Dev Buddy 的服务端版本来自 `package.json`。配套 Skill 的版本以
+`.agents/skills/dev-buddy/skill-manifest.json` 为唯一事实源，服务端构建和
+Skill 客户端都读取这份清单。
+
 停止服务：
 
 ```bash
 docker compose down
 ```
+
+## Dev Buddy Skill 版本
+
+Skill 客户端会在每次操作前读取 `/api/v1/meta`，确认本地 Skill 是否与当前服务端兼容。也可以手动查看：
+
+```bash
+python .agents/skills/dev-buddy/scripts/dev_buddy_api.py version
+```
+
+系统设置页面会显示服务端版本、API 版本、推荐 Skill 版本和最低兼容 Skill
+版本。旧版 Skill 请求会收到 HTTP `426 Upgrade Required` 和 GitHub 更新地址；
+普通的第三方 API 客户端不会因缺少 Skill 版本头而被拦截。
+
+发布 Skill 时必须先更新 `.agents/skills/dev-buddy/skill-manifest.json` 中的
+语义化版本号，再提交、部署服务端。用户更新整个 Skill 目录时应保留自己
+现有的 `.agents/skills/dev-buddy/.env`，不能用仓库中的示例配置覆盖它。
 
 ## HTTPS 与 WebSocket 反向代理
 

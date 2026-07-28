@@ -7,6 +7,14 @@ description: Operate Dev Buddy capabilities through its project-scoped HTTP APIs
 
 Use the bundled scripts as the only transport to Dev Buddy. The supported capabilities include managed asset administration and safe Linux server diagnostics through `scripts/dev_buddy_api.py`.
 
+## Version compatibility
+
+The GitHub project copy of this Skill is the single source of truth. `skill-manifest.json` declares the local Skill version, API version, minimum compatible version, and update URL. The bundled client checks `/api/v1/meta` before every operation and sends `X-Dev-Buddy-Skill-Version` on every request.
+
+Run `scripts/dev_buddy_api.py version` to show the local version and the versions supported by the configured server. If the client returns `skill_update_required`, HTTP 426, or `skill_api_incompatible`, stop and tell the user to update the complete Skill directory from the returned `updateUrl`. Preserve the user's existing `.env`; never overwrite or display it. Do not retry the operation with a custom user agent, suppressed version header, copied request, or older script.
+
+An `skill_update_available` warning means the current version is still compatible, so the requested operation may continue after clearly notifying the user. A `server_update_recommended` warning means the local Skill is newer than the deployed server; do not assume newly documented capabilities are available.
+
 ## High-risk second confirmation
 
 Never execute a high-risk operation from the user's initial request alone. First list and resolve every exact target, then show the current state, requested state, expected impact, and recovery limitation. Pause and wait for the user to confirm those exact details in a subsequent message. Only after that second confirmation may the matching `--confirm-risk`, `--confirm-name`, `--confirm-username`, `--confirm-replace`, or `--confirm` flags be used.

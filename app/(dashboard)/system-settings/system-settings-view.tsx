@@ -1,11 +1,12 @@
 "use client";
 
-import { KeyOutlined } from "@ant-design/icons";
-import { App, Breadcrumb, Button, Card, Form, Input, Popconfirm, Space, Tag, Typography } from "antd";
+import { InfoCircleOutlined, KeyOutlined } from "@ant-design/icons";
+import { App, Breadcrumb, Button, Card, Descriptions, Form, Input, Popconfirm, Space, Tag, Typography } from "antd";
 import { useTransition } from "react";
 import NoticePopover from "@/app/notice-popover";
 import { clearDefaultUserPasswordAction, saveDefaultUserPasswordAction } from "./actions";
 import { useRefreshUiData } from "@/app/ui-data";
+import type { DevBuddyVersionInfo } from "@/lib/dev-buddy-version";
 
 const { Title, Text } = Typography;
 
@@ -14,7 +15,13 @@ type PasswordForm = {
   confirmPassword: string;
 };
 
-export default function SystemSettingsView({ hasDefaultPassword }: { hasDefaultPassword: boolean }) {
+export default function SystemSettingsView({
+  hasDefaultPassword,
+  versionInfo,
+}: {
+  hasDefaultPassword: boolean;
+  versionInfo: DevBuddyVersionInfo;
+}) {
   const { message } = App.useApp();
   const refresh = useRefreshUiData();
   const [pending, startTransition] = useTransition();
@@ -28,6 +35,28 @@ export default function SystemSettingsView({ hasDefaultPassword }: { hasDefaultP
         <Text type="secondary">配置项目级通用设置</Text>
       </div>
     </div>
+
+    <Card
+      className="settings-card"
+      title={<Space><InfoCircleOutlined />版本信息</Space>}
+      extra={<Tag color="blue">Skill {versionInfo.recommendedSkillVersion}</Tag>}
+    >
+      <Descriptions
+        column={{ xs: 1, sm: 2 }}
+        items={[
+          { key: "server", label: "Dev Buddy 服务端", children: versionInfo.serverVersion },
+          { key: "api", label: "API 版本", children: versionInfo.apiVersion },
+          { key: "skill", label: "推荐 Skill", children: versionInfo.recommendedSkillVersion },
+          { key: "minimum", label: "最低兼容 Skill", children: versionInfo.minSkillVersion },
+          ...(versionInfo.buildCommit
+            ? [{ key: "commit", label: "构建提交", children: versionInfo.buildCommit }]
+            : []),
+        ]}
+      />
+      <Button href={versionInfo.skillSourceUrl} target="_blank">
+        查看 GitHub 最新 Skill
+      </Button>
+    </Card>
 
     <Card
       className="settings-card"

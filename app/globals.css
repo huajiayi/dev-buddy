@@ -594,6 +594,10 @@ body {
   max-width: 720px;
 }
 
+.settings-card + .settings-card {
+  margin-top: 16px;
+}
+
 .settings-form {
   max-width: 480px;
   margin-top: 24px;

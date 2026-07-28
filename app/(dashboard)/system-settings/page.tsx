@@ -1,11 +1,12 @@
 "use client";
 
 import { UiDataState, useUiData } from "@/app/ui-data";
+import type { DevBuddyVersionInfo } from "@/lib/dev-buddy-version";
 import SystemSettingsView from "./system-settings-view";
 
 export default function SystemSettingsPage() {
-  const state = useUiData<{ hasDefaultPassword: boolean }>("system-settings");
+  const state = useUiData<{ hasDefaultPassword: boolean; versionInfo: DevBuddyVersionInfo }>("system-settings");
   return <UiDataState data={state.data} error={state.error} loading={state.isLoading} retry={state.mutate}>
-    {(data) => <SystemSettingsView hasDefaultPassword={data.hasDefaultPassword} />}
+    {(data) => <SystemSettingsView hasDefaultPassword={data.hasDefaultPassword} versionInfo={data.versionInfo} />}
   </UiDataState>;
 }

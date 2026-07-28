@@ -26,6 +26,7 @@ import {
 } from "@/lib/server-management";
 import { hasDefaultUserPassword } from "@/lib/system-settings";
 import { listManagedSessionEvents, listManagedSessions } from "@/lib/managed-sessions";
+import { getDevBuddyVersionInfo } from "@/lib/dev-buddy-version";
 
 export const runtime = "nodejs";
 export const maxDuration = 65;
@@ -132,7 +133,10 @@ async function loadPageData(view: string, request: NextRequest, user: AppUser) {
   }
   if (view === "system-settings") {
     requireAdmin(user);
-    return { hasDefaultPassword: await hasDefaultUserPassword() };
+    return {
+      hasDefaultPassword: await hasDefaultUserPassword(),
+      versionInfo: getDevBuddyVersionInfo(),
+    };
   }
   if (view === "managed-sessions") {
     const [sessions, servers, databases, serverIds, databaseIds] = await Promise.all([

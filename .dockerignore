@@ -2,7 +2,12 @@
 .github
 .next
 .vercel
-.agents
+.agents/*
+!.agents/skills/
+.agents/skills/*
+!.agents/skills/dev-buddy/
+.agents/skills/dev-buddy/*
+!.agents/skills/dev-buddy/skill-manifest.json
 node_modules
 coverage
 .env

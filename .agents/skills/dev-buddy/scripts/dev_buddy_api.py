@@ -16,15 +16,39 @@ from urllib.request import Request, urlopen
 
 
 SKILL_ROOT = Path(__file__).resolve().parents[1]
+SKILL_MANIFEST_PATH = SKILL_ROOT / "skill-manifest.json"
 if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8")
     sys.stderr.reconfigure(encoding="utf-8")
+
+
+def read_skill_manifest() -> dict[str, str]:
+    try:
+        raw = json.loads(SKILL_MANIFEST_PATH.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as error:
+        raise ValueError(f"invalid Dev Buddy Skill manifest: {error}") from error
+    required = ("version", "apiVersion", "minCompatibleVersion", "sourceUrl")
+    if not isinstance(raw, dict) or any(not isinstance(raw.get(key), str) or not raw[key].strip() for key in required):
+        raise ValueError("invalid Dev Buddy Skill manifest: required version fields are missing")
+    return {key: raw[key].strip() for key in required}
+
+
+SKILL_MANIFEST = read_skill_manifest()
+SKILL_VERSION = SKILL_MANIFEST["version"]
+SKILL_API_VERSION = SKILL_MANIFEST["apiVersion"]
+_compatibility_info: dict[str, Any] | None = None
 
 
 class ApiRequestError(Exception):
     def __init__(self, status: int, detail: dict[str, Any]) -> None:
         super().__init__(str(detail.get("message") or f"HTTP {status}"))
         self.status = status
+        self.detail = detail
+
+
+class SkillCompatibilityError(Exception):
+    def __init__(self, detail: dict[str, Any]) -> None:
+        super().__init__(str(detail.get("message") or "Dev Buddy Skill version is incompatible"))
         self.detail = detail
 
 
@@ -59,7 +83,7 @@ def configuration() -> tuple[str, str]:
     return base_url, api_key
 
 
-def request_json(
+def _request_json(
     path: str,
     method: str = "GET",
     payload: dict[str, Any] | None = None,
@@ -71,7 +95,8 @@ def request_json(
     headers = {
         "Accept": "application/json",
         "Authorization": f"Bearer {api_key}",
-        "User-Agent": "dev-buddy-skill/1.0",
+        "User-Agent": f"dev-buddy-skill/{SKILL_VERSION}",
+        "X-Dev-Buddy-Skill-Version": SKILL_VERSION,
     }
     if body is not None:
         headers["Content-Type"] = "application/json"
@@ -96,6 +121,92 @@ def request_json(
     except URLError as error:
         print(json.dumps({"error": "connection_failed", "message": str(error.reason)}, ensure_ascii=False, indent=2), file=sys.stderr)
         raise SystemExit(1) from error
+
+
+def semantic_version(value: str) -> tuple[int, int, int]:
+    parts = value.strip().split(".")
+    if len(parts) != 3 or any(not part.isdigit() for part in parts):
+        raise SkillCompatibilityError({
+            "error": "invalid_skill_version",
+            "message": f"Dev Buddy returned an invalid semantic version: {value}",
+        })
+    return tuple(int(part) for part in parts)  # type: ignore[return-value]
+
+
+def check_skill_compatibility() -> dict[str, Any]:
+    global _compatibility_info
+    if _compatibility_info is not None:
+        return _compatibility_info
+    try:
+        result = _request_json("/api/v1/meta")
+    except ApiRequestError as error:
+        if error.status != 404:
+            raise
+        raise SkillCompatibilityError({
+            "error": "server_version_check_unavailable",
+            "message": "Dev Buddy 服务端未提供 Skill 版本检查，请先更新服务端",
+            "currentVersion": SKILL_VERSION,
+        }) from error
+    data = result.get("data") if isinstance(result, dict) else None
+    if not isinstance(data, dict):
+        raise SkillCompatibilityError({
+            "error": "invalid_version_response",
+            "message": "Dev Buddy 服务端返回了无效的版本信息",
+            "currentVersion": SKILL_VERSION,
+        })
+    api_version = str(data.get("apiVersion") or "")
+    latest_version = str(data.get("recommendedSkillVersion") or "")
+    min_version = str(data.get("minSkillVersion") or "")
+    update_url = str(data.get("skillSourceUrl") or SKILL_MANIFEST["sourceUrl"])
+    if api_version != SKILL_API_VERSION:
+        raise SkillCompatibilityError({
+            "error": "skill_api_incompatible",
+            "message": f"当前 Skill 使用 {SKILL_API_VERSION}，服务端要求 {api_version}",
+            "currentVersion": SKILL_VERSION,
+            "apiVersion": api_version,
+            "updateUrl": update_url,
+        })
+    current = semantic_version(SKILL_VERSION)
+    minimum = semantic_version(min_version)
+    latest = semantic_version(latest_version)
+    if current < minimum:
+        raise SkillCompatibilityError({
+            "error": "skill_update_required",
+            "message": f"当前 Dev Buddy Skill {SKILL_VERSION} 已不兼容，请更新到 {latest_version}",
+            "currentVersion": SKILL_VERSION,
+            "minVersion": min_version,
+            "latestVersion": latest_version,
+            "updateUrl": update_url,
+        })
+    if current < latest:
+        print(json.dumps({
+            "warning": "skill_update_available",
+            "message": f"Dev Buddy Skill 有新版本 {latest_version}，当前版本为 {SKILL_VERSION}",
+            "currentVersion": SKILL_VERSION,
+            "latestVersion": latest_version,
+            "updateUrl": update_url,
+        }, ensure_ascii=False), file=sys.stderr)
+    elif current > latest:
+        print(json.dumps({
+            "warning": "server_update_recommended",
+            "message": f"当前 Skill {SKILL_VERSION} 新于服务端推荐版本 {latest_version}",
+            "currentVersion": SKILL_VERSION,
+            "serverSkillVersion": latest_version,
+        }, ensure_ascii=False), file=sys.stderr)
+    _compatibility_info = data
+    return data
+
+
+def request_json(
+    path: str,
+    method: str = "GET",
+    payload: dict[str, Any] | None = None,
+    managed: bool = False,
+    confirmation: str | None = None,
+) -> Any:
+    if path != "/api/v1/meta":
+        check_skill_compatibility()
+    return _request_json(path, method, payload, managed, confirmation)
 
 
 def read_stdin_secret(operation: str) -> str:
@@ -154,6 +265,7 @@ def prompt_confirmed_password() -> str:
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Call the Dev Buddy infrastructure API")
     subparsers = parser.add_subparsers(dest="operation", required=True)
+    subparsers.add_parser("version", help="Show local and server-compatible Dev Buddy versions")
     servers = subparsers.add_parser("servers", help="List managed servers")
     servers.add_argument("--all", action="store_true", help="Include disabled servers (administrator API Key required)")
     subparsers.add_parser("policies", help="List command policies")
@@ -380,7 +492,16 @@ def build_parser() -> argparse.ArgumentParser:
 def main() -> int:
     args = build_parser().parse_args()
     try:
-        if args.operation == "servers":
+        if args.operation == "version":
+            version = check_skill_compatibility()
+            result = {
+                "data": {
+                    "localSkillVersion": SKILL_VERSION,
+                    "isLatest": SKILL_VERSION == version.get("recommendedSkillVersion"),
+                    **version,
+                },
+            }
+        elif args.operation == "servers":
             result = request_json("/api/v1/servers?includeDisabled=true" if args.all else "/api/v1/servers")
         elif args.operation == "policies":
             result = request_json("/api/v1/command-policies")
@@ -789,6 +910,9 @@ def main() -> int:
             )
         print(json.dumps(result, ensure_ascii=False, indent=2))
         return 0
+    except SkillCompatibilityError as error:
+        print(json.dumps(error.detail, ensure_ascii=False, indent=2), file=sys.stderr)
+        return 3
     except ApiRequestError as error:
         print(
             json.dumps({"httpStatus": error.status, **error.detail}, ensure_ascii=False, indent=2),
