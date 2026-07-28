@@ -2,6 +2,38 @@
 
 Dev Buddy 是一个服务器、数据库与云账号管理后台。SSH 交互终端依赖项目自带的常驻 Node.js WebSocket 服务，因此生产环境推荐使用 Docker Compose 部署。
 
+## 使用者快速开始
+
+登录后先进入工作台，按角色完成页面上的引导清单：
+
+- 管理员：完成安全基线、录入第一台服务器、执行首次只读健康检查、创建并授权操作员，再接入 Agent。
+- 操作员：确认已有授权资源、执行首次只读健康检查、创建 API Key，再接入 Agent。
+
+首次健康检查固定执行只读的 `uptime` 命令。完成基础步骤前，“全托管 AI”会保持锁定，避免新人尚未熟悉资源与权限边界时直接进入高级操作。
+
+### 接入支持 Skill 的 Agent
+
+Dev Buddy 不绑定特定 Agent。任何能够安装并执行 Skill 的 Agent，都可以使用项目中的 `.agents/skills/dev-buddy` 目录接入。
+
+1. 在 Dev Buddy 的“API Key”页面创建密钥，并立即保存；密钥只会完整显示一次。
+2. 将完整的 `.agents/skills/dev-buddy` 目录安装到 Agent 支持的 Skill 目录。
+3. 在该 Skill 目录中创建 `.env`，配置 Dev Buddy 地址与 API Key：
+
+   ```dotenv
+   DEV_BUDDY_BASE_URL=https://你的-dev-buddy-地址
+   DEV_BUDDY_API_KEY=刚创建的密钥
+   ```
+
+4. 先检查版本兼容性：
+
+   ```bash
+   python .agents/skills/dev-buddy/scripts/dev_buddy_api.py version
+   ```
+
+5. 让 Agent 执行一次只读任务，例如“列出我有权限访问的服务器”，确认首次 API 调用成功。
+
+完整配置、复制模板和接入状态可在登录后的“Agent 接入”页面查看。不要把 `.env`、API Key 或生产地址提交到 Git。
+
 ## Docker Compose 部署
 
 ### 1. 准备环境变量

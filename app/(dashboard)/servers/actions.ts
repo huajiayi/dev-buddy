@@ -36,6 +36,7 @@ export async function createServer(input: ServerInput) {
     if ("error" in validated) return { ok: false, error: validated.error };
     const id = await createManagedServer({ ...validated.value, credential: validated.value.credential! });
     revalidatePath("/servers");
+    revalidatePath("/");
     return { ok: true, id };
   } catch (error) {
     return { ok: false, error: error instanceof Error ? error.message : "服务器保存失败" };
@@ -49,6 +50,7 @@ export async function editServer(id: string, input: ServerInput) {
     if ("error" in validated) return { ok: false, error: validated.error };
     await updateManagedServer({ id, ...validated.value });
     revalidatePath("/servers");
+    revalidatePath("/");
     return { ok: true };
   } catch (error) {
     return { ok: false, error: error instanceof Error ? error.message : "服务器更新失败" };
@@ -60,6 +62,7 @@ export async function deleteServer(id: string) {
     await requireAdmin();
     await removeManagedServer(id);
     revalidatePath("/servers");
+    revalidatePath("/");
     return { ok: true };
   } catch (error) {
     return { ok: false, error: error instanceof Error ? error.message : "服务器删除失败" };
@@ -71,6 +74,7 @@ export async function toggleServer(id: string, enabled: boolean) {
     await requireAdmin();
     await setManagedServerEnabled(id, enabled);
     revalidatePath("/servers");
+    revalidatePath("/");
     return { ok: true };
   } catch (error) {
     return { ok: false, error: error instanceof Error ? error.message : "服务器状态更新失败" };

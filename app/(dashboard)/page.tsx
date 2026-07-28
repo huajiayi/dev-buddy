@@ -1,33 +1,31 @@
 "use client";
 
-import AdminDashboard from "@/app/admin-dashboard";
 import { UiDataState, useUiData } from "@/app/ui-data";
-import type { AppUser } from "@/lib/auth";
-import type { DatabaseGrant, ServerGrant } from "@/lib/authorization";
+import type { AppUser, UserRole } from "@/lib/auth";
 import type { ManagedDatabase } from "@/lib/database-management";
-import type { ManagedServer } from "@/lib/server-management";
+import type { OnboardingSignals } from "@/lib/onboarding";
+import type { CommandExecution, ManagedServer, ProjectApiKey } from "@/lib/server-management";
+import HomeDashboard from "./home-dashboard";
 
-type UsersPageData = {
-  users: AppUser[];
-  currentUserId: string;
+export type HomePageData = {
+  user: Pick<AppUser, "id" | "displayName" | "username" | "role">;
   servers: ManagedServer[];
   databases: ManagedDatabase[];
-  serverGrants: ServerGrant[];
-  databaseGrants: DatabaseGrant[];
-  defaultPasswordConfigured: boolean;
+  apiKeys: ProjectApiKey[];
+  recentExecutions: CommandExecution[];
+  signals: OnboardingSignals;
+  counts: {
+    users: number;
+    operators: number;
+    servers: number;
+    databases: number;
+  };
+  role: UserRole;
 };
 
 export default function Home() {
-  const state = useUiData<UsersPageData>("users");
+  const state = useUiData<HomePageData>("home");
   return <UiDataState data={state.data} error={state.error} loading={state.isLoading} retry={state.mutate}>
-    {(data) => <AdminDashboard
-      users={data.users}
-      currentUserId={data.currentUserId}
-      servers={data.servers}
-      databases={data.databases}
-      serverGrants={data.serverGrants}
-      databaseGrants={data.databaseGrants}
-      hasDefaultUserPassword={data.defaultPasswordConfigured}
-    />}
+    {(data) => <HomeDashboard {...data} refresh={state.mutate} />}
   </UiDataState>;
 }

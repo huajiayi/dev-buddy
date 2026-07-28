@@ -35,6 +35,7 @@ export async function createUserAction(input: UserFormInput) {
   try {
     await requireAdmin();
     const id = await createUser(validateInput(input));
+    revalidatePath("/users");
     revalidatePath("/");
     return { ok: true, id } as const;
   } catch (error) { return { ok: false, error: errorResult(error, "用户创建失败") } as const; }
@@ -45,6 +46,7 @@ export async function updateUserAction(id: string, input: UserFormInput) {
     await requireAdmin();
     const value = validateInput(input);
     await updateUser(id, value);
+    revalidatePath("/users");
     revalidatePath("/");
     return { ok: true } as const;
   } catch (error) { return { ok: false, error: errorResult(error, "用户更新失败") } as const; }
@@ -54,6 +56,7 @@ export async function toggleUserAction(id: string, enabled: boolean) {
   try {
     const current = await requireAdmin();
     await setUserEnabled(id, enabled, current.id);
+    revalidatePath("/users");
     revalidatePath("/");
     return { ok: true } as const;
   } catch (error) { return { ok: false, error: errorResult(error, "用户状态更新失败") } as const; }
@@ -64,6 +67,7 @@ export async function resetPasswordAction(id: string, password: string) {
     const current = await requireAdmin();
     if (id === current.id) throw new Error("请不要在当前会话中重置自己的密码");
     await resetUserPassword(id, password);
+    revalidatePath("/users");
     revalidatePath("/");
     return { ok: true } as const;
   } catch (error) { return { ok: false, error: errorResult(error, "密码重置失败") } as const; }
@@ -73,6 +77,7 @@ export async function deleteUserAction(id: string) {
   try {
     const current = await requireAdmin();
     await removeUser(id, current.id);
+    revalidatePath("/users");
     revalidatePath("/");
     return { ok: true } as const;
   } catch (error) { return { ok: false, error: errorResult(error, "用户删除失败") } as const; }
@@ -86,6 +91,7 @@ export async function saveUserResourceGrantsAction(input: {
   try {
     const current = await requireAdmin();
     await replaceUserResourceGrants({ ...input, grantedBy: current.id });
+    revalidatePath("/users");
     revalidatePath("/");
     revalidatePath("/servers");
     revalidatePath("/databases");

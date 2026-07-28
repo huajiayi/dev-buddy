@@ -436,6 +436,11 @@ body {
   margin-top: 20px;
 }
 
+.managed-readiness-alert,
+.agent-setup-alert {
+  margin-bottom: 20px;
+}
+
 .managed-resource-options {
   display: grid;
   gap: 10px;
@@ -685,6 +690,116 @@ body {
 .detail-card {
   border-color: #edf0f3 !important;
   box-shadow: 0 3px 14px rgb(15 23 42 / 4%);
+}
+
+.welcome-card {
+  margin: 24px 0 20px;
+  overflow: hidden;
+  border: 1px solid #cfe3ff !important;
+  background:
+    radial-gradient(circle at 88% 16%, rgb(22 119 255 / 14%), transparent 30%),
+    linear-gradient(135deg, #fff, #f4f9ff);
+  box-shadow: 0 8px 28px rgb(22 119 255 / 8%);
+}
+
+.welcome-card h2 {
+  margin: 10px 0 6px !important;
+}
+
+.welcome-card .ant-typography {
+  max-width: 760px;
+}
+
+.welcome-progress {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 18px;
+}
+
+.onboarding-stats {
+  margin-bottom: 20px;
+}
+
+.onboarding-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 20px;
+  align-items: stretch;
+}
+
+.onboarding-grid-secondary {
+  margin-top: 20px;
+}
+
+.onboarding-card {
+  min-width: 0;
+  border-color: #edf0f3 !important;
+  box-shadow: 0 3px 14px rgb(15 23 42 / 4%);
+}
+
+.onboarding-card .ant-steps-item-description {
+  max-width: none !important;
+}
+
+.onboarding-step-description {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.onboarding-step-description .ant-btn {
+  flex: 0 0 auto;
+  height: auto;
+  padding: 0;
+}
+
+.onboarding-output {
+  max-height: 180px;
+  margin: 8px 0 0;
+  overflow: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-family: "Geist Mono", "Cascadia Code", Consolas, monospace;
+  font-size: 12px;
+}
+
+.agent-setup-grid {
+  display: grid;
+  grid-template-columns: minmax(300px, 0.8fr) minmax(0, 1.4fr);
+  gap: 20px;
+  align-items: start;
+}
+
+.agent-setup-grid > .onboarding-card {
+  position: sticky;
+  top: 84px;
+}
+
+.agent-copy-block {
+  position: relative;
+  margin: 10px 0 18px;
+  padding: 14px 76px 14px 16px;
+  overflow: auto;
+  color: #d6deeb;
+  background: #111827;
+  border-radius: 8px;
+}
+
+.agent-copy-block pre {
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-family: "Geist Mono", "Cascadia Code", Consolas, monospace;
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.agent-copy-block .ant-btn {
+  position: absolute;
+  top: 10px;
+  right: 10px;
 }
 
 .detail-columns {
@@ -1100,6 +1215,26 @@ body {
     grid-template-columns: 1fr;
   }
 
+  .welcome-progress {
+    width: 100%;
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .onboarding-grid,
+  .agent-setup-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .agent-setup-grid > .onboarding-card {
+    position: static;
+  }
+
+  .onboarding-step-description {
+    flex-direction: column;
+    gap: 4px;
+  }
+
   .cost-layout {
     grid-template-columns: 1fr;
   }
@@ -1130,6 +1265,10 @@ body {
   }
 
   .detail-columns {
+    grid-template-columns: 1fr;
+  }
+
+  .agent-setup-grid {
     grid-template-columns: 1fr;
   }
 

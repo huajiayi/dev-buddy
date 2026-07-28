@@ -1,7 +1,7 @@
 "use client";
 
 import { ApiOutlined, CodeOutlined, DeleteOutlined, EditOutlined, PlusOutlined, UploadOutlined } from "@ant-design/icons";
-import { App, Breadcrumb, Button, Card, Checkbox, Form, Input, InputNumber, Modal, Popconfirm, Select, Space, Switch, Table, Tag, Typography, Upload } from "antd";
+import { App, Breadcrumb, Button, Card, Checkbox, Empty, Form, Input, InputNumber, Modal, Popconfirm, Select, Space, Switch, Table, Tag, Typography, Upload } from "antd";
 import type { TableColumnsType, UploadProps } from "antd";
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
@@ -63,11 +63,21 @@ export default function DatabasesView({ databases, servers, isAdmin, grants }: {
       </Space>;
     } },
   ];
+  const emptyState = <Empty
+    image={Empty.PRESENTED_IMAGE_SIMPLE}
+    description={isAdmin
+      ? "还没有数据库。添加连接信息后先测试连接，再进入 SQL 工作台。"
+      : "你还没有已授权的数据库。请让管理员在用户管理中为你分配资源。"}
+  >
+    <Button type="primary" onClick={isAdmin ? create : () => router.push("/")}>
+      {isAdmin ? "添加第一个数据库" : "查看我的入门任务"}
+    </Button>
+  </Empty>;
 
   return <>
     <Breadcrumb items={[{ title: "首页" }, { title: "数据库管理" }, { title: "数据库列表" }]} />
     <div className="page-heading"><div><Title level={2}>关系型数据库</Title><Text type="secondary">{isAdmin ? "管理 PostgreSQL、MySQL/MariaDB 资产；SQL 操作由执行策略控制" : "仅显示管理员已授权给你的数据库"}</Text></div>{isAdmin && <Button type="primary" icon={<PlusOutlined />} onClick={create}>添加数据库</Button>}</div>
-    <Card className="detail-card"><Table rowKey="id" columns={columns} dataSource={databases} scroll={{ x: 1360 }} /></Card>
+    <Card className="detail-card"><Table rowKey="id" columns={columns} dataSource={databases} scroll={{ x: 1360 }} locale={{ emptyText: emptyState }} /></Card>
     <Modal width={720} title={editing ? "编辑数据库" : "添加数据库"} open={open} onCancel={close} onOk={() => form.submit()} confirmLoading={pending} destroyOnHidden afterOpenChange={(visible) => { if (!visible) return; form.resetFields(); form.setFieldsValue(editing ? { ...editing, password: undefined, tlsCa: undefined, clearTlsCa: false } : { engine: "postgresql", port: 5432, connectionMode: "direct", tlsMode: "disable", environment: "production", sshServerId: null }); }}>
       <Form form={form} layout="vertical" onFinish={submit}>
         <div className="form-grid"><Form.Item name="name" label="名称" rules={[{ required: true }]}><Input /></Form.Item><Form.Item name="environment" label="环境"><Select options={["production", "staging", "development"].map((value) => ({ value }))} /></Form.Item></div>

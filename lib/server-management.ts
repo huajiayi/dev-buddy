@@ -388,6 +388,41 @@ export async function listCommandExecutions(limit = 100): Promise<CommandExecuti
   return result.rows.map((row) => ({ id: row.id, serverId: row.server_id, serverName: row.server_name, apiKeyName: row.api_key_name, actorUserName: row.actor_user_name, command: row.command, reason: row.reason, status: row.status, policyDecision: row.policy_decision, policyReason: row.policy_reason, stdout: row.stdout, stderr: row.stderr, exitCode: row.exit_code, durationMs: row.duration_ms, remoteAddress: row.remote_address, source: row.source, createdAt: row.created_at.toISOString() }));
 }
 
+export async function listUserCommandExecutions(userId: string, limit = 20): Promise<CommandExecution[]> {
+  await ensureSchema();
+  const result = await getPool().query<{
+    id: string; server_id: string | null; server_name: string | null; api_key_name: string | null; actor_user_name: string | null; command: string; reason: string;
+    status: string; policy_decision: string; policy_reason: string; stdout: string; stderr: string; exit_code: number | null;
+    duration_ms: number | null; remote_address: string | null; source: string; created_at: Date;
+  }>(`SELECT e.*, s.name AS server_name, k.name AS api_key_name, u.display_name AS actor_user_name
+      FROM command_executions e
+      LEFT JOIN managed_servers s ON s.id=e.server_id
+      LEFT JOIN project_api_keys k ON k.id=e.api_key_id
+      LEFT JOIN app_users u ON u.id=e.actor_user_id
+      WHERE e.actor_user_id=$1 OR k.owner_user_id=$1
+      ORDER BY e.created_at DESC
+      LIMIT $2`, [userId, Math.max(1, Math.min(limit, 100))]);
+  return result.rows.map((row) => ({
+    id: row.id,
+    serverId: row.server_id,
+    serverName: row.server_name,
+    apiKeyName: row.api_key_name,
+    actorUserName: row.actor_user_name,
+    command: row.command,
+    reason: row.reason,
+    status: row.status,
+    policyDecision: row.policy_decision,
+    policyReason: row.policy_reason,
+    stdout: row.stdout,
+    stderr: row.stderr,
+    exitCode: row.exit_code,
+    durationMs: row.duration_ms,
+    remoteAddress: row.remote_address,
+    source: row.source,
+    createdAt: row.created_at.toISOString(),
+  }));
+}
+
 export async function listSshTerminalSessions(limit = 100): Promise<SshTerminalSession[]> {
   await ensureSchema();
   const result = await getPool().query<{

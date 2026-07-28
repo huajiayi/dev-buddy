@@ -2,10 +2,10 @@
 
 import { createContext, type ReactNode, useContext, useEffect, useState, useTransition } from "react";
 import {
-  AppstoreOutlined, AuditOutlined, BellOutlined, CloudServerOutlined, CodeOutlined, DatabaseOutlined,
+  AppstoreOutlined, AuditOutlined, CloudServerOutlined, CodeOutlined, DatabaseOutlined,
   DesktopOutlined, FileSearchOutlined, HistoryOutlined, KeyOutlined, LineChartOutlined,
-  LogoutOutlined, MenuFoldOutlined, MenuUnfoldOutlined, SafetyCertificateOutlined,
-  RobotOutlined, SettingOutlined, TeamOutlined,
+  HomeOutlined, LogoutOutlined, MenuFoldOutlined, MenuUnfoldOutlined, SafetyCertificateOutlined,
+  RobotOutlined, RocketOutlined, SettingOutlined, TeamOutlined, WarningOutlined,
 } from "@ant-design/icons";
 import { App, Avatar, Button, ConfigProvider, Dropdown, Flex, Layout, Menu, Result, Skeleton, Space, Typography, theme } from "antd";
 import type { MenuProps } from "antd";
@@ -50,7 +50,7 @@ function Shell({ children, user }: { children: ReactNode; user: AppUser }) {
     ? "/databases"
     : controlledTerminal || sshTerminal
       ? "/servers"
-      : ["/managed-session-audit", "/managed-sessions", "/database-executions", "/database-policies", "/databases", "/terminal-sessions", "/servers", "/command-policies", "/executions", "/system-settings", "/api-keys", "/aliyun/resources", "/aliyun/costs", "/aliyun/risks"].find((key) => pathname.startsWith(key))
+      : ["/agent-setup", "/users", "/managed-session-audit", "/managed-sessions", "/database-executions", "/database-policies", "/databases", "/terminal-sessions", "/servers", "/command-policies", "/executions", "/system-settings", "/api-keys", "/aliyun/resources", "/aliyun/costs", "/aliyun/risks"].find((key) => pathname.startsWith(key))
         ?? (pathname.startsWith("/aliyun") ? "/aliyun" : "/");
   const accountItems: MenuProps["items"] = [
     { key: "identity", label: <div className="account-menu-identity"><Text strong>{user.displayName}</Text><Text type="secondary">{roleLabels[user.role]}</Text></div>, disabled: true },
@@ -61,13 +61,9 @@ function Shell({ children, user }: { children: ReactNode; user: AppUser }) {
 
   const menuItems: MenuProps["items"] = [
     {
-      key: "ai-collaboration", icon: <RobotOutlined />, label: "AI 协作",
-      children: [
-        { key: "/managed-sessions", icon: <RobotOutlined />, label: menuLink("/managed-sessions", "AI 全托管") },
-        ...(user.role === "admin" ? [
-          { key: "/managed-session-audit", icon: <AuditOutlined />, label: menuLink("/managed-session-audit", "托管审计") },
-        ] : []),
-      ],
+      key: "/",
+      icon: <HomeOutlined />,
+      label: menuLink("/", "工作台"),
     },
     {
       key: "server-operations", icon: <DesktopOutlined />, label: "服务器运维",
@@ -90,6 +86,11 @@ function Shell({ children, user }: { children: ReactNode; user: AppUser }) {
         ] : []),
       ],
     },
+    {
+      key: "/agent-setup",
+      icon: <RobotOutlined />,
+      label: menuLink("/agent-setup", "Agent 接入"),
+    },
     ...(user.role === "admin" ? [{
       key: "aliyun-management", icon: <CloudServerOutlined />, label: "阿里云管理",
       children: [
@@ -100,9 +101,18 @@ function Shell({ children, user }: { children: ReactNode; user: AppUser }) {
       ],
     }] : []),
     {
+      key: "advanced-capabilities", icon: <WarningOutlined />, label: "高级能力",
+      children: [
+        { key: "/managed-sessions", icon: <RobotOutlined />, label: menuLink("/managed-sessions", "AI 全托管") },
+        ...(user.role === "admin" ? [
+          { key: "/managed-session-audit", icon: <AuditOutlined />, label: menuLink("/managed-session-audit", "托管审计") },
+        ] : []),
+      ],
+    },
+    {
       key: "system-management", icon: <SettingOutlined />, label: "系统管理",
       children: [
-        ...(user.role === "admin" ? [{ key: "/", icon: <TeamOutlined />, label: menuLink("/", "用户管理") }] : []),
+        ...(user.role === "admin" ? [{ key: "/users", icon: <TeamOutlined />, label: menuLink("/users", "用户管理") }] : []),
         ...(user.role === "admin" ? [{ key: "/system-settings", icon: <SettingOutlined />, label: menuLink("/system-settings", "系统设置") }] : []),
         { key: "/api-keys", icon: <KeyOutlined />, label: menuLink("/api-keys", "API Key") },
       ],
@@ -116,7 +126,7 @@ function Shell({ children, user }: { children: ReactNode; user: AppUser }) {
         theme="dark"
         mode="inline"
         selectedKeys={[selectedKey]}
-        defaultOpenKeys={["ai-collaboration", "server-operations", "database-management", "aliyun-management", "system-management"]}
+        defaultOpenKeys={["server-operations", "database-management", "aliyun-management", "system-management"]}
         onClick={({ key, domEvent }) => {
           if (key.startsWith("/") && !(domEvent.target as HTMLElement).closest("a")) router.push(key);
         }}
@@ -127,7 +137,7 @@ function Shell({ children, user }: { children: ReactNode; user: AppUser }) {
       <Header className="admin-header">
         <Button type="text" className="collapse-button" icon={collapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />} onClick={() => setCollapsed((value) => !value)} aria-label={collapsed ? "展开菜单" : "收起菜单"} />
         <Space size={20}>
-          <Button type="text" shape="circle" icon={<BellOutlined />} aria-label="通知" />
+          <Button type="text" shape="circle" icon={<RocketOutlined />} aria-label="打开入门任务" title="入门任务" onClick={() => router.push("/")} />
           <Dropdown menu={{ items: accountItems, onClick: ({ key }) => { if (key === "logout") startLogout(() => logoutAction()); } }} placement="bottomRight">
             <Flex align="center" gap={10} className="account-entry">
               <Avatar size={32} src={user.avatarUrl || undefined} style={{ backgroundColor: token.colorPrimary }}>{user.displayName.slice(0, 1)}</Avatar>

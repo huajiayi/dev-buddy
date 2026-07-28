@@ -1,7 +1,7 @@
 "use client";
 
 import { ApiOutlined, CodeOutlined, DeleteOutlined, DesktopOutlined, EditOutlined, PlusOutlined, UploadOutlined } from "@ant-design/icons";
-import { App, Breadcrumb, Button, Card, Form, Input, InputNumber, Modal, Popconfirm, Select, Space, Switch, Table, Tag, Typography, Upload } from "antd";
+import { App, Breadcrumb, Button, Card, Empty, Form, Input, InputNumber, Modal, Popconfirm, Select, Space, Switch, Table, Tag, Typography, Upload } from "antd";
 import type { TableColumnsType } from "antd";
 import type { UploadProps } from "antd";
 import { useState, useTransition } from "react";
@@ -84,11 +84,21 @@ export default function ServersView({ servers, isAdmin, grants }: { servers: Man
       </Space>;
     } },
   ];
+  const emptyState = <Empty
+    image={Empty.PRESENTED_IMAGE_SIMPLE}
+    description={isAdmin
+      ? "还没有服务器。添加 SSH 连接信息后，先测试连接，再执行只读检查。"
+      : "你还没有已授权的服务器。请让管理员在用户管理中为你分配资源。"}
+  >
+    <Button type="primary" onClick={isAdmin ? openCreateModal : () => router.push("/")}>
+      {isAdmin ? "添加第一台服务器" : "查看我的入门任务"}
+    </Button>
+  </Empty>;
 
   return <>
     <Breadcrumb items={[{ title: "首页" }, { title: "服务器运维" }, { title: "服务器列表" }]} />
     <div className="page-heading"><div><Title level={2}>服务器列表</Title><Text type="secondary">{isAdmin ? "管理 Linux 服务器及其连接方式" : "仅显示管理员已授权给你的服务器"}</Text></div>{isAdmin && <Button type="primary" icon={<PlusOutlined />} onClick={openCreateModal}>添加服务器</Button>}</div>
-    <Card className="detail-card"><Table rowKey="id" columns={columns} dataSource={servers} scroll={{ x: 1290 }} pagination={{ pageSize: 10 }} locale={{ emptyText: "暂无服务器，请先添加 SSH 连接信息" }} /></Card>
+    <Card className="detail-card"><Table rowKey="id" columns={columns} dataSource={servers} scroll={{ x: 1290 }} pagination={{ pageSize: 10 }} locale={{ emptyText: emptyState }} /></Card>
     <Modal title={editingServer ? "编辑 Linux 服务器" : "添加 Linux 服务器"} open={open} onCancel={closeModal} onOk={() => form.submit()} okText={editingServer ? "保存" : "添加"} confirmLoading={pending} destroyOnHidden afterOpenChange={(visible) => { if (!visible) return; form.resetFields(); form.setFieldsValue(editingServer ? { name: editingServer.name, host: editingServer.host, port: editingServer.port, username: editingServer.username, authType: editingServer.authType, environment: editingServer.environment, credential: undefined } : { port: 22, authType: "privateKey", environment: "production" }); }}>
       <Form form={form} layout="vertical" initialValues={{ port: 22, authType: "privateKey", environment: "production" }} onFinish={submit} className="server-form">
         <Form.Item name="name" label="名称" rules={[{ required: true }]}><Input placeholder="生产环境 Web-01" /></Form.Item>

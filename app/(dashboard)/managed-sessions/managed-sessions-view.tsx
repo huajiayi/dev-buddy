@@ -1,12 +1,13 @@
 "use client";
 
 import { useEffect, useMemo, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import {
   AuditOutlined, ClockCircleOutlined, CopyOutlined, EyeOutlined,
   RobotOutlined, StopOutlined,
 } from "@ant-design/icons";
 import {
-  Alert, App, Breadcrumb, Button, Card, Checkbox, Descriptions, Form, Input,
+  Alert, App, Breadcrumb, Button, Card, Checkbox, Descriptions, Empty, Form, Input,
   InputNumber, Modal, Popconfirm, Space, Statistic, Table, Tag, Typography,
 } from "antd";
 import type { TableColumnsType } from "antd";
@@ -101,13 +102,23 @@ export default function ManagedSessionsView({
   servers,
   databases,
   adminMode = false,
+  readiness,
+  onboardingReady = true,
 }: {
   sessions: ManagedSession[];
   servers: ManagedServer[];
   databases: ManagedDatabase[];
   adminMode?: boolean;
+  readiness?: {
+    hasResource: boolean;
+    hasApiKey: boolean;
+    hasAgentConnection: boolean;
+    hasFirstCheck: boolean;
+  };
+  onboardingReady?: boolean;
 }) {
   const { message } = App.useApp();
+  const router = useRouter();
   const refresh = useRefreshUiData();
   const [pending, startTransition] = useTransition();
   const [open, setOpen] = useState(false);
@@ -152,8 +163,29 @@ export default function ManagedSessionsView({
     <Breadcrumb items={[{ title: "首页" }, { title: "AI 全托管" }, ...(adminMode ? [{ title: "托管审计" }] : [])]} />
     <div className="page-heading">
       <div><Title level={2}>{adminMode ? "AI 托管审计" : "AI 全托管"} </Title><Text type="secondary">{adminMode ? "查看所有用户的临时高权限会话、动作时间线和总结" : "在限定时间和资源范围内临时允许 AI 执行高权限操作"}</Text></div>
-      {!adminMode && <Button type="primary" danger icon={<RobotOutlined />} disabled={Boolean(active)} onClick={() => setOpen(true)}>开启全托管</Button>}
+      {!adminMode && <Button
+        type="primary"
+        danger
+        icon={<RobotOutlined />}
+        disabled={Boolean(active) || !onboardingReady}
+        title={!onboardingReady ? "请先完成基础入门任务" : undefined}
+        onClick={() => setOpen(true)}
+      >开启全托管</Button>}
     </div>
+
+    {!adminMode && !onboardingReady && <Alert
+      type="info"
+      showIcon
+      title="先验证基础链路，再使用高权限能力"
+      description={<Space size={[6, 6]} wrap>
+        <Tag color={readiness?.hasResource ? "success" : "default"}>资源授权</Tag>
+        <Tag color={readiness?.hasFirstCheck ? "success" : "default"}>首次只读检查</Tag>
+        <Tag color={readiness?.hasApiKey ? "success" : "default"}>个人 API Key</Tag>
+        <Tag color={readiness?.hasAgentConnection ? "success" : "default"}>Agent 首次调用</Tag>
+      </Space>}
+      action={<Button onClick={() => router.push("/")}>返回入门工作台</Button>}
+      className="managed-readiness-alert"
+    />}
 
     {active && !adminMode && <Alert
       type="error"
@@ -170,7 +202,21 @@ export default function ManagedSessionsView({
       <Card><Statistic title="已记录动作" value={sessions.reduce((sum, item) => sum + item.eventCount, 0)} prefix={<AuditOutlined />} /></Card>
     </div>
 
-    <Card className="detail-card"><Table rowKey="id" columns={columns} dataSource={rows} scroll={{ x: 1180 }} pagination={{ pageSize: 10 }} locale={{ emptyText: "暂无托管记录" }} /></Card>
+    <Card className="detail-card"><Table
+      rowKey="id"
+      columns={columns}
+      dataSource={rows}
+      scroll={{ x: 1180 }}
+      pagination={{ pageSize: 10 }}
+      locale={{ emptyText: <Empty
+        image={Empty.PRESENTED_IMAGE_SIMPLE}
+        description={adminMode
+          ? "暂无托管审计记录"
+          : onboardingReady
+            ? "暂无托管记录。仅在普通受控模式无法完成明确目标时使用。"
+            : "完成基础入门任务后，这里会开放全托管引导。"}
+      >{!adminMode && <Button onClick={() => router.push(onboardingReady ? "/agent-setup" : "/")}>{onboardingReady ? "查看 Agent 接入" : "继续入门"}</Button>}</Empty> }}
+    /></Card>
 
     <Modal
       title="开启 AI 全托管"

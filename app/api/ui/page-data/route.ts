@@ -23,10 +23,12 @@ import {
   listManagedServers,
   listProjectApiKeys,
   listSshTerminalSessions,
+  listUserCommandExecutions,
 } from "@/lib/server-management";
 import { hasDefaultUserPassword } from "@/lib/system-settings";
 import { listManagedSessionEvents, listManagedSessions } from "@/lib/managed-sessions";
 import { getDevBuddyVersionInfo } from "@/lib/dev-buddy-version";
+import { publicRequestOrigin } from "@/lib/public-origin";
 
 export const runtime = "nodejs";
 export const maxDuration = 65;
@@ -48,6 +50,64 @@ function requireId(request: NextRequest) {
 }
 
 async function loadPageData(view: string, request: NextRequest, user: AppUser) {
+  if (view === "home") {
+    const [
+      allServers,
+      allDatabases,
+      serverIds,
+      databaseIds,
+      apiKeys,
+      recentExecutions,
+      users,
+      grants,
+      defaultPasswordConfigured,
+    ] = await Promise.all([
+      listManagedServers(),
+      listManagedDatabases(),
+      accessibleServerIds(user),
+      accessibleDatabaseIds(user),
+      listProjectApiKeys(user.id),
+      listUserCommandExecutions(user.id),
+      user.role === "admin" ? listUsers() : Promise.resolve([user]),
+      user.role === "admin" ? listResourceGrants() : listUserResourceGrants(user.id),
+      user.role === "admin" ? hasDefaultUserPassword() : Promise.resolve(true),
+    ]);
+    const servers = serverIds ? allServers.filter((item) => serverIds.has(item.id)) : allServers;
+    const databases = databaseIds ? allDatabases.filter((item) => databaseIds.has(item.id)) : allDatabases;
+    const operatorIds = new Set(users.filter((item) => item.role === "operator").map((item) => item.id));
+    const hasOperatorGrant = grants.serverGrants.some((item) => operatorIds.has(item.userId))
+      || grants.databaseGrants.some((item) => operatorIds.has(item.userId));
+    const signals = {
+      hasSecurityBaseline: defaultPasswordConfigured,
+      hasEnabledServer: servers.some((item) => item.enabled),
+      hasAnyResource: servers.some((item) => item.enabled) || databases.some((item) => item.enabled),
+      hasOperator: operatorIds.size > 0,
+      hasOperatorGrant,
+      hasApiKey: apiKeys.some((item) => item.enabled),
+      hasAgentConnection: apiKeys.some((item) => item.enabled && Boolean(item.lastUsedAt)),
+      hasFirstCheck: recentExecutions.some((item) => item.source === "onboarding" && item.status === "success"),
+    };
+    return {
+      user: {
+        id: user.id,
+        displayName: user.displayName,
+        username: user.username,
+        role: user.role,
+      },
+      servers,
+      databases,
+      apiKeys,
+      recentExecutions,
+      signals,
+      counts: {
+        users: users.length,
+        operators: operatorIds.size,
+        servers: servers.length,
+        databases: databases.length,
+      },
+      role: user.role,
+    };
+  }
   if (view === "users") {
     requireAdmin(user);
     const [users, servers, databases, grants, defaultPasswordConfigured] = await Promise.all([
@@ -111,6 +171,13 @@ async function loadPageData(view: string, request: NextRequest, user: AppUser) {
   if (view === "api-keys") {
     return { apiKeys: await listProjectApiKeys(user.id) };
   }
+  if (view === "agent-setup") {
+    return {
+      apiKeys: await listProjectApiKeys(user.id),
+      versionInfo: getDevBuddyVersionInfo(),
+      baseUrl: publicRequestOrigin(request),
+    };
+  }
   if (view === "command-policies") {
     requireAdmin(user);
     return { policies: await listCommandPolicies() };
@@ -139,17 +206,29 @@ async function loadPageData(view: string, request: NextRequest, user: AppUser) {
     };
   }
   if (view === "managed-sessions") {
-    const [sessions, servers, databases, serverIds, databaseIds] = await Promise.all([
+    const [sessions, servers, databases, serverIds, databaseIds, apiKeys, executions] = await Promise.all([
       listManagedSessions(user),
       listManagedServers(),
       listManagedDatabases(),
       accessibleServerIds(user),
       accessibleDatabaseIds(user),
+      listProjectApiKeys(user.id),
+      listUserCommandExecutions(user.id),
     ]);
+    const visibleServers = servers.filter((item) => item.enabled && (!serverIds || serverIds.has(item.id)));
+    const visibleDatabases = databases.filter((item) => item.enabled && (!databaseIds || databaseIds.has(item.id)));
+    const readiness = {
+      hasResource: visibleServers.length > 0 || visibleDatabases.length > 0,
+      hasApiKey: apiKeys.some((item) => item.enabled),
+      hasAgentConnection: apiKeys.some((item) => item.enabled && Boolean(item.lastUsedAt)),
+      hasFirstCheck: executions.some((item) => item.source === "onboarding" && item.status === "success"),
+    };
     return {
       sessions,
-      servers: servers.filter((item) => item.enabled && (!serverIds || serverIds.has(item.id))),
-      databases: databases.filter((item) => item.enabled && (!databaseIds || databaseIds.has(item.id))),
+      servers: visibleServers,
+      databases: visibleDatabases,
+      readiness,
+      onboardingReady: Object.values(readiness).every(Boolean),
     };
   }
   if (view === "managed-session-audit") {

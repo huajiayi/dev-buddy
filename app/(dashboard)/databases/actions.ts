@@ -32,6 +32,7 @@ export async function createDatabase(input: DatabaseInput) {
     if ("error" in checked) return { ok: false, error: checked.error };
     await createManagedDatabase(checked.value);
     revalidatePath("/databases");
+    revalidatePath("/");
     return { ok: true };
   } catch (error) { return { ok: false, error: error instanceof Error ? error.message : "数据库保存失败" }; }
 }
@@ -43,17 +44,18 @@ export async function editDatabase(id: string, input: DatabaseInput) {
     if ("error" in checked) return { ok: false, error: checked.error };
     await updateManagedDatabase(id, checked.value);
     revalidatePath("/databases");
+    revalidatePath("/");
     return { ok: true };
   } catch (error) { return { ok: false, error: error instanceof Error ? error.message : "数据库更新失败" }; }
 }
 
 export async function deleteDatabase(id: string) {
-  try { await requireAdmin(); await removeManagedDatabase(id); revalidatePath("/databases"); return { ok: true }; }
+  try { await requireAdmin(); await removeManagedDatabase(id); revalidatePath("/databases"); revalidatePath("/"); return { ok: true }; }
   catch (error) { return { ok: false, error: error instanceof Error ? error.message : "数据库删除失败" }; }
 }
 
 export async function toggleDatabase(id: string, enabled: boolean) {
-  try { await requireAdmin(); await setManagedDatabaseEnabled(id, enabled); revalidatePath("/databases"); return { ok: true }; }
+  try { await requireAdmin(); await setManagedDatabaseEnabled(id, enabled); revalidatePath("/databases"); revalidatePath("/"); return { ok: true }; }
   catch (error) { return { ok: false, error: error instanceof Error ? error.message : "状态更新失败" }; }
 }
 

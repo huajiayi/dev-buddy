@@ -10,6 +10,13 @@ export type ManagedSessionsPageData = {
   sessions: ManagedSession[];
   servers: ManagedServer[];
   databases: ManagedDatabase[];
+  readiness: {
+    hasResource: boolean;
+    hasApiKey: boolean;
+    hasAgentConnection: boolean;
+    hasFirstCheck: boolean;
+  };
+  onboardingReady: boolean;
 };
 
 export default function ManagedSessionsPage() {
